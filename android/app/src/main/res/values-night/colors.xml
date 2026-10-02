@@ -1,0 +1,11 @@
+<resources>
+    <color name="bg">#0A1222</color>
+    <color name="surface">#111C33</color>
+    <color name="ink">#E8ECF4</color>
+    <color name="ink2">#A7B1C6</color>
+    <color name="muted">#6E7990</color>
+    <color name="band">#14233F</color>
+    <color name="band_ink">#F2EAD6</color>
+    <color name="band_dim">#8193B5</color>
+    <color name="gold">#D7AC57</color>
+</resources>

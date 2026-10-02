@@ -1,0 +1,36 @@
+<resources>
+    <style name="Theme.RegistroXAU" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/band</item>
+        <item name="colorOnPrimary">@color/band_ink</item>
+        <item name="colorSecondary">@color/gold</item>
+        <item name="android:statusBarColor">@color/band</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:colorBackground">@color/bg</item>
+    </style>
+
+    <style name="Card" parent="Widget.Material3.CardView.Elevated">
+        <item name="android:layout_marginStart">16dp</item>
+        <item name="android:layout_marginEnd">16dp</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="cardBackgroundColor">@color/surface</item>
+        <item name="cardCornerRadius">12dp</item>
+    </style>
+
+    <style name="Eyebrow">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/muted</item>
+    </style>
+
+    <style name="Line">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">10dp</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/ink</item>
+    </style>
+</resources>
