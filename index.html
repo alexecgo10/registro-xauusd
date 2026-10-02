@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Registro XAUUSD</title>
+<meta name="description" content="Registro de trading XAUUSD: calendario, copiers, resumen y expectativa.">
+<meta name="theme-color" content="#13254A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1>XAU<b>/</b>USD · Registro</h1>
+      <div class="bal"><span id="hdrLbl">Balance</span><strong id="hdrBal">—</strong></div>
+    </div>
+    <div class="accs" id="accs" role="group" aria-label="Cuenta"></div>
+  </div>
+</header>
+
+<main>
+  <!-- CALENDARIO -->
+  <section class="view" id="v-cal">
+    <div class="mnav">
+      <button id="mPrev" aria-label="Mes anterior">‹</button>
+      <h2 id="mTitle">—</h2>
+      <button id="mNext" aria-label="Mes siguiente">›</button>
+    </div>
+    <div class="mstats">
+      <div class="mstat"><div class="eyebrow">Resultado</div><div class="v" id="msPnl">—</div></div>
+      <div class="mstat"><div class="eyebrow">% del mes</div><div class="v" id="msPct">—</div></div>
+      <div class="mstat"><div class="eyebrow">Días + / −</div><div class="v" id="msDays">—</div></div>
+    </div>
+    <div class="cal" id="cal"></div>
+    <div class="legend"><span><i style="background:var(--pos)"></i>Día en verde</span><span><i style="background:var(--neg)"></i>Día en rojo</span><span><i style="background:var(--sunk)"></i>Total semana</span><span><i style="background:var(--gold);border-radius:50%"></i>Incluye fin de semana</span></div>
+    <div class="empty card" id="calEmpty" hidden><strong>Aún no hay días registrados</strong>Ve a «Registro» e importa el informe de MT5 para rellenar el calendario.</div>
+  </section>
+
+  <!-- REGISTRO -->
+  <section class="view" id="v-reg" hidden>
+    <div class="card stack" id="importCard">
+      <div><div class="eyebrow">Importar</div><h2>Informe de MT5</h2></div>
+      <label class="file" for="fileIn"><input type="file" id="fileIn" accept=".xlsx,.xls">Elegir informe (.xlsx)</label>
+      <div id="impMsg" class="msg" hidden></div>
+      <details>
+        <summary>Cómo exportarlo</summary>
+        <ol class="steps">
+          <li>En MT5 de ordenador abre la Caja de herramientas (Ctrl+T) → pestaña Historial.</li>
+          <li>Clic derecho → elige el periodo (Todo el historial o el último mes).</li>
+          <li>Clic derecho → Informe → Open XML (MS Office Excel 2007).</li>
+          <li>Súbelo aquí. Los días repetidos se actualizan y los que ya no estén en MT5 se conservan.</li>
+        </ol>
+      </details>
+    </div>
+
+    <div class="card stack" id="manualCard">
+      <div><div class="eyebrow">A mano</div><h2>Añadir o corregir un día</h2></div>
+      <div class="grid2">
+        <label class="f">Cuenta<select id="mAcc"></select></label>
+        <label class="f">Fecha<input type="date" id="mDate"></label>
+        <label class="f">Ganancia del día ($)<input type="number" step="0.01" id="mPnl" inputmode="decimal" placeholder="0,00"></label>
+        <label class="f">Depósito (+) / Retiro (−)<input type="number" step="0.01" id="mFlow" inputmode="decimal" placeholder="0,00"></label>
+      </div>
+      <label class="f" id="mStartWrap" hidden>Balance inicial (primer día de esta cuenta)<input type="number" step="0.01" id="mStart" inputmode="decimal"></label>
+      <label class="f">Nota<input type="text" id="mNote" placeholder="Opcional"></label>
+      <div class="row"><span class="hint">Si luego importas el informe de ese día, manda el de MT5.</span><button class="btn" id="mSave">Guardar día</button></div>
+      <div id="mMsg" class="msg" hidden></div>
+    </div>
+
+
+    <div class="card stack" id="backupCard">
+      <div><div class="eyebrow">Tu cuenta</div><h2>Copia de seguridad</h2></div>
+      <p class="hint" id="userLine" style="margin:0"></p>
+      <div class="row" style="flex-wrap:wrap;justify-content:flex-start">
+        <button class="btn ghost" id="bkExport">Descargar copia</button>
+        <label class="btn ghost" for="bkIn" style="cursor:pointer">Restaurar copia<input type="file" id="bkIn" accept=".json,application/json" hidden></label>
+        <button class="btn danger" id="logout">Cerrar sesión</button>
+      </div>
+      <div id="bkMsg" class="msg" hidden></div>
+    </div>
+    <div class="card">
+      <div class="row" style="margin-bottom:6px"><h2>Historial</h2><span class="hint" id="regCount"></span></div>
+      <div class="list" id="regList"></div>
+    </div>
+  </section>
+
+  <!-- COPIERS -->
+  <section class="view" id="v-cop" hidden>
+    <div class="kpis">
+      <div class="kpi hero"><div class="eyebrow" id="cmLbl">Cuenta de comisiones</div><div class="v num" id="cmBal">—</div><div class="s" id="cmSub">—</div></div>
+    </div>
+    <div class="cps" id="cps"></div>
+    <p class="hint" id="copNote" style="margin:0"></p>
+    <div class="card stack" id="copCalCard">
+      <div class="row" style="flex-wrap:wrap"><h2>Calendario</h2><div class="seg" id="copSeg" role="group" aria-label="Ver"></div></div>
+      <div class="mnav"><button id="cPrev" aria-label="Mes anterior">‹</button><h2 id="cTitle" style="text-transform:capitalize">—</h2><button id="cNext" aria-label="Mes siguiente">›</button></div>
+      <div class="mstats">
+        <div class="mstat"><div class="eyebrow" id="csl1">—</div><div class="v" id="cs1">—</div></div>
+        <div class="mstat"><div class="eyebrow" id="csl2">—</div><div class="v" id="cs2">—</div></div>
+        <div class="mstat"><div class="eyebrow" id="csl3">—</div><div class="v" id="cs3">—</div></div>
+      </div>
+      <div class="cal" id="copCal"></div>
+      <p class="hint" id="copCalEmpty" style="margin:0" hidden>Aún no hay días desde la fecha de inicio del copytrading.</p>
+    </div>
+
+    <div class="stack">
+      <h2>Reparto por día</h2>
+      <div class="tbl-wrap"><table id="copTbl"></table></div>
+    </div>
+
+    <details class="card" id="movCard">
+      <summary id="movSum">Movimientos</summary>
+      <div class="stack" style="margin-top:12px">
+      <div class="grid2">
+        <label class="f">Cuenta<select id="eTarget"></select></label>
+        <label class="f">Tipo<select id="eKind"></select></label>
+        <label class="f">Fecha<input type="date" id="eDate"></label>
+        <label class="f">Importe ($)<input type="number" step="0.01" id="eAmt" inputmode="decimal" placeholder="0,00"></label>
+      </div>
+      <label class="f">Nota<input type="text" id="eNote" placeholder="Opcional"></label>
+      <div class="row"><span class="hint">Retiro: pon el importe en negativo.</span><button class="btn" id="eSave">Añadir</button></div>
+      <div id="eMsg" class="msg" hidden></div>
+      <div class="list" id="eList"></div>
+    </div>
+    </details>
+    <details class="card" id="setCard">
+      <summary>Ajustes del copytrading</summary>
+      <div class="stack" style="margin-top:12px">
+        <div class="grid2">
+          <label class="f">Cuenta que copian<select id="sAcc"></select></label>
+          <label class="f">Desde el día<input type="date" id="sStart"></label>
+          <label class="f">% de comisión<input type="number" step="1" id="sPct" inputmode="decimal"></label>
+          <label class="f">Cuenta de comisiones<select id="sCommAcc"></select></label>
+          <label class="f" id="sCommWrap">Capital inicial cta. comisiones ($)<input type="number" step="0.01" id="sComm" inputmode="decimal"></label>
+        </div>
+        <div id="sCopiers" class="stack"></div>
+        <div class="row"><span class="hint">Ganancia copier = tu ganancia × (su capital ÷ tu balance inicial) × multiplicador.</span><button class="btn" id="sSave">Guardar</button></div>
+        <div id="sMsg" class="msg" hidden></div>
+      </div>
+    </details>
+  </section>
+
+  <!-- RESUMEN -->
+  <section class="view" id="v-res" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="card stack">
+      <div class="row"><h2 id="chTitle">Evolución del balance</h2>
+        <div class="seg" role="group" aria-label="Métrica"><button id="chBal" aria-pressed="true">Balance</button><button id="chPct" aria-pressed="false">% acum.</button></div></div>
+      <div class="chart" id="lineChart"></div>
+    </div>
+    <div class="card stack">
+      <h2>Resultado por mes</h2>
+      <div class="chart" id="barChart"></div>
+      <div class="tbl-wrap"><table id="monTbl"></table></div>
+    </div>
+    <p class="hint" style="margin:0">El % acumulado es compuesto día a día y no le afectan depósitos, retiros ni transferencias entre cuentas. Fechas en hora del servidor del bróker.</p>
+  </section>
+  <!-- EXPECTATIVA -->
+  <section class="view" id="v-exp" hidden>
+    <div class="kpis">
+      <div class="kpi hero"><div class="eyebrow" id="xHeroL">Media diaria</div><div class="v num" id="xRate">—</div><div class="s" id="xRateSub">—</div></div>
+    </div>
+    <div class="card stack">
+      <div class="row" style="flex-wrap:wrap"><h3>Calcular con la media de</h3>
+        <div class="seg" id="xPer" role="group" aria-label="Periodo"><button data-p="all" aria-pressed="true">Todo</button><button data-p="90">3 meses</button><button data-p="30">1 mes</button><button data-p="custom">Mi %</button></div></div>
+      <label class="f" id="xCustomWrap" hidden>% diario a usar<input type="number" step="0.01" id="xCustom" inputmode="decimal" placeholder="0,50"></label>
+      <p class="hint" style="margin:0">Proyección desde tu balance actual, sumando la media en % cada día de lunes a viernes, con interés compuesto y sin retiros.</p>
+    </div>
+    <div class="mnav"><button id="xPrev" aria-label="Mes anterior">‹</button><h2 id="xTitle" style="text-transform:capitalize">—</h2><button id="xNext" aria-label="Mes siguiente">›</button></div>
+    <div class="mstats">
+      <div class="mstat"><div class="eyebrow">Hoy</div><div class="v" id="xs1">—</div></div>
+      <div class="mstat"><div class="eyebrow">Fin de mes</div><div class="v" id="xs2">—</div></div>
+      <div class="mstat"><div class="eyebrow">Ganancia mes</div><div class="v" id="xs3">—</div></div>
+    </div>
+    <div class="cal" id="xCal"></div>
+    <div class="legend"><span><i style="background:var(--sunk)"></i>Balance real</span><span><i style="background:var(--gold-soft);border:1px solid var(--gold)"></i>Balance esperado</span></div>
+    <div class="card">
+      <h2 style="margin-bottom:6px">Hitos</h2>
+      <div class="list" id="xMiles"></div>
+    </div>
+    <p class="hint" style="margin:0">Es una estimación matemática con tu rendimiento pasado, no una garantía: un mal día puede cambiarla mucho.</p>
+  </section>
+  <p class="ro-note" id="roNote" hidden>Solo lectura: solo el dueño puede añadir o importar datos.</p>
+</main>
+
+<nav class="tabs"><div class="in" role="tablist">
+  <button role="tab" data-v="cal" aria-selected="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>Calendario</button>
+  <button role="tab" data-v="res" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 19.5h16M6.5 16V11M11 16V6.5M15.5 16v-6M20 16V8.5"/></svg>Resumen</button>
+  <button role="tab" data-v="cop" aria-selected="false"><svg viewBox="0 0 24 24"><circle cx="8.5" cy="9" r="3"/><circle cx="16.5" cy="10" r="2.5"/><path d="M3.5 19c.6-3 2.6-4.5 5-4.5s4.4 1.5 5 4.5M14 15.2c.8-.5 1.6-.7 2.5-.7 2 0 3.5 1.3 4 3.5"/></svg>Copiers</button>
+  <button role="tab" data-v="reg" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>Registro</button>
+  <button role="tab" data-v="exp" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 18 9.5 12.5l3.5 3L20 8"/><path d="M15 8h5v5"/><path d="M4 21h16" stroke-dasharray="2 2.5"/></svg>Expectativa</button>
+</div></nav>
+
+<div id="sheetHost"></div>
+
+
+<div id="login" class="login" hidden>
+  <div class="login-in">
+    <h1>XAU<b>/</b>USD · Registro</h1>
+    <p>Entra con tu cuenta de Google. Tus datos se guardan en tu móvil y en la nube, y solo tú puedes verlos.</p>
+    <button class="btn gold" id="gbtn">Entrar con Google</button>
+    <div id="loginMsg" class="msg" hidden></div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+</body>
+</html>
