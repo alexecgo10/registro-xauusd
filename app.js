@@ -595,7 +595,7 @@ async function importFile(file){
       i++; showMsg(msg,`Guardando ${i} de ${rep.days.length}…`);
       const ex=existing.get(d.date);
       if (ex && ex.src==='mt5' && (ex.n||0)>d.n){ kept++; continue; }
-      await db.collection('days').doc(rep.acc+'_'+d.date).set({...d, note: ex&&ex.note? ex.note : ''});
+      await db.collection('days').doc(rep.acc+'_'+d.date).set({...d, note: ex&&ex.note&&ex.note!=='Desde captura de MT5'? ex.note : ''});
       ex? updated++ : added++;
     }
     if (!cfg.accounts || !cfg.accounts[rep.acc]){
