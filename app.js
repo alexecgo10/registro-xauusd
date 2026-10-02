@@ -1,3 +1,4 @@
+import { readShot } from './shot.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, addDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
@@ -367,7 +368,7 @@ function renderReg(S){
   $('regCount').textContent = rows.length? rows.length+' días' : '';
   $('regList').innerHTML = rows.length? rows.map(x=>`<div class="li" data-d="${x.date}" role="button" tabindex="0">
      <div class="l"><strong>${shortDate(x.date)}</strong> <span class="mut" style="font-size:13px">${DOW[pd(x.date).getUTCDay()].slice(0,3)}</span>
-       <small>${x.n?x.n+' op. · ':''}${x.flow?'Mov. '+smoney(x.flow)+' · ':''}${(x.parts||[]).some(p=>p.src==='manual')?'a mano':(x.parts||[]).some(p=>p.src==='myfxbook')?'Myfxbook':'MT5'}</small></div>
+       <small>${x.n?x.n+' op. · ':''}${x.flow?'Mov. '+smoney(x.flow)+' · ':''}${(x.parts||[]).some(p=>p.via==='captura')?'captura':(x.parts||[]).some(p=>p.src==='manual')?'a mano':(x.parts||[]).some(p=>p.src==='myfxbook')?'Myfxbook':'MT5'}</small></div>
      <div class="r"><span class="${cls(x.pnl)}">${smoney(x.pnl)}</span><small>${spct(x.pct)} · ${money(x.end)}</small></div></div>`).join('')
      : '<div class="empty">Todavía no hay días. Importa tu informe arriba.</div>';
 }
@@ -634,6 +635,34 @@ $('fileIn').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!
     e.target.value=''; return; }
   importFile(f); });
 $('mAcc').addEventListener('change',updateStartField);
+/* Captura de MT5 → rellena el formulario «A mano» (no guarda nada hasta pulsar Guardar). */
+let shot=null;
+$('shotIn').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  const m=$('shotMsg'); shot=null; showMsg(m,'Leyendo la captura… (la primera vez tarda un poco más)');
+  try{
+    const r=await readShot(f,p=>showMsg(m,`Leyendo la captura… ${Math.round(p*100)} %`));
+    if (r.profit==null && r.balance==null) throw new Error('No encuentro «Beneficio» ni «Balance» en la captura. Usa la de Historial → Posiciones con el resumen arriba.');
+    // Las cuentas son en céntimos (USC): 100 USC = 1 $.
+    const raw=(r.profit||0)+(r.swap||0)+(r.commission||0), dep=r.deposit||0;
+    const pnl=Math.round(raw)/100, flow=Math.round(dep)/100;
+    const warn=[];
+    if (r.balance!=null && Math.abs(raw+dep-r.balance)>0.5) warn.push(`el balance del resumen (${nf2.format(r.balance)}) no cuadra con la suma; revisa los números`);
+    const tSum=r.trades.reduce((a,b)=>a+b,0);
+    const tradesOk = r.trades.length && r.profit!=null && Math.abs(tSum-r.profit)<0.5;
+    if (r.trades.length && !tradesOk) warn.push('no he leído bien todas las operaciones (el nº de operaciones no se guardará)');
+    let date=$('mDate').value;
+    if (r.dates.length===1) { date=r.dates[0]; $('mDate').value=date; }
+    else if (r.dates.length>1) warn.push(`la captura tiene ${r.dates.length} días (${r.dates.map(shortDate).join(', ')}): el resultado es la suma de todos. Filtra por un solo día en MT5`);
+    else warn.push('no veo la fecha; comprueba que es la correcta');
+    $('mPnl').value=pnl.toFixed(2); $('mFlow').value=flow?flow.toFixed(2):'';
+    if (!$('mNote').value) $('mNote').value='Desde captura de MT5';
+    shot={date,pnl,n:tradesOk?r.trades.length:0,wins:tradesOk?r.trades.filter(x=>x>0).length:0,losses:tradesOk?r.trades.filter(x=>x<0).length:0};
+    const ops = tradesOk? ` · ${shot.n} operaciones (${shot.wins} + / ${shot.losses} −)` : '';
+    showMsg(m,`Leído ${shortDate(date)}: ${nf2.format(raw)} USC = ${smoney(pnl)}${flow?` · movimiento ${smoney(flow)}`:''}${ops}.`+
+      (warn.length? ' Ojo: '+warn.join('; ')+'.' : '')+' Comprueba la cuenta y pulsa «Guardar día».', warn.length?'err':'ok');
+    $('mAcc').focus();
+  }catch(err){ showMsg(m, err.message||'No se pudo leer la captura.','err'); }
+});
 $('mDate').value=todayStr(); $('eDate').value=todayStr();
 $('mSave').addEventListener('click',async()=>{
   const a=$('mAcc').value, date=$('mDate').value, msg=$('mMsg');
@@ -642,9 +671,11 @@ $('mSave').addEventListener('click',async()=>{
   const ex=days.find(d=>d.acc===a&&d.date===date);
   if (ex && ex.src!=='manual'){ showMsg(msg,'Ese día ya viene importado (MT5 o Myfxbook). Para añadir una nota, ábrelo en el calendario.','err'); return; }
   const doc={acc:a,date,pnl,flow,n:0,wins:0,losses:0,trades:[],flows:flow?[{t:'',a:flow,c:flow>0?'Depósito':'Retiro'}]:[],src:'manual',note:$('mNote').value.trim()};
+  // Si los datos vienen de una captura y no se han tocado, guarda también el nº de operaciones.
+  if (shot && shot.date===date && Math.abs(shot.pnl-pnl)<0.005){ doc.n=shot.n; doc.wins=shot.wins; doc.losses=shot.losses; doc.via='captura'; }
   if (!$('mStartWrap').hidden){ const s=parseFloat($('mStart').value); if(isNaN(s)){ showMsg(msg,'Es el primer día de esta cuenta: escribe el balance inicial.','err'); return; } doc.start=s; }
   else if (ex && typeof ex.start==='number') doc.start=ex.start;
-  try{ await db.collection('days').doc(a+'_'+date).set(doc); showMsg(msg,`Guardado ${shortDate(date)}: ${smoney(pnl)}.`,'ok'); $('mPnl').value=''; $('mFlow').value=''; $('mNote').value=''; }
+  try{ await db.collection('days').doc(a+'_'+date).set(doc); showMsg(msg,`Guardado ${shortDate(date)}: ${smoney(pnl)}.`,'ok'); shot=null; showMsg($('shotMsg'),''); $('mPnl').value=''; $('mFlow').value=''; $('mNote').value=''; }
   catch(e){ showMsg(msg,'No se pudo guardar. Inténtalo de nuevo.','err'); }
 });
 $('eTarget').addEventListener('change',updateKinds);

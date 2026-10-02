@@ -1,8 +1,8 @@
 // Service worker: permite instalar la app y abrirla sin conexión.
 // Los datos los guarda Firestore en el propio móvil; aquí solo se cachean los archivos de la app.
-const VERSION = 'v2';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
-const CDN = ['www.gstatic.com', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const VERSION = 'v3';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'shot.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CDN = ['www.gstatic.com', 'cdnjs.cloudflare.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
