@@ -50,7 +50,7 @@
   <section class="view" id="v-reg" hidden>
     <div class="card stack" id="importCard">
       <div><div class="eyebrow">Importar</div><h2>Informe de MT5</h2></div>
-      <label class="file" for="fileIn"><input type="file" id="fileIn" accept=".xlsx,.xls">Elegir informe (.xlsx)</label>
+      <label class="file" for="fileIn"><input type="file" id="fileIn" accept=".xlsx,.xls,.json,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">Elegir informe de MT5 (.xlsx) o copia (.json)</label>
       <div id="impMsg" class="msg" hidden></div>
       <details>
         <summary>Cómo exportarlo</summary>
@@ -83,7 +83,7 @@
       <p class="hint" id="userLine" style="margin:0"></p>
       <div class="row" style="flex-wrap:wrap;justify-content:flex-start">
         <button class="btn ghost" id="bkExport">Descargar copia</button>
-        <label class="btn ghost" for="bkIn" style="cursor:pointer">Restaurar copia<input type="file" id="bkIn" accept=".json,application/json" hidden></label>
+        <label class="btn ghost" for="bkIn" style="cursor:pointer">Restaurar copia<input type="file" id="bkIn" accept=".json,application/json,text/plain,application/octet-stream" hidden></label>
         <button class="btn danger" id="logout">Cerrar sesión</button>
       </div>
       <div id="bkMsg" class="msg" hidden></div>

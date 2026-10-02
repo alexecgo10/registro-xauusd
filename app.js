@@ -626,7 +626,13 @@ $('copCal').addEventListener('click',e=>{ const c=e.target.closest('[data-d]'); 
 $('cal').addEventListener('click',e=>{ const c=e.target.closest('[data-d]'); if(c) openDay(c.dataset.d); });
 $('regList').addEventListener('click',e=>{ const c=e.target.closest('[data-d]'); if(c) openDay(c.dataset.d); });
 $('regList').addEventListener('keydown',e=>{ if(e.key==='Enter'){ const c=e.target.closest('[data-d]'); if(c) openDay(c.dataset.d); }});
-$('fileIn').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) importFile(f); });
+$('fileIn').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f) return;
+  if (/\.json$/i.test(f.name) || f.type==='application/json'){ const m=$('impMsg');
+    try{ const data=JSON.parse(await f.text()); if(!data||!Array.isArray(data.days)) throw new Error('El archivo no es una copia de esta app.');
+      showMsg(m,'Restaurando copia…'); const n=await restoreBackup(data); showMsg(m,`Copia restaurada: ${n.days} días, ${n.entries} movimientos${n.config?' y ajustes':''}.`,'ok'); }
+    catch(err){ showMsg(m, err.message||'No se pudo leer la copia.','err'); }
+    e.target.value=''; return; }
+  importFile(f); });
 $('mAcc').addEventListener('change',updateStartField);
 $('mDate').value=todayStr(); $('eDate').value=todayStr();
 $('mSave').addEventListener('click',async()=>{
