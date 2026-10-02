@@ -57,7 +57,7 @@ object Notifier {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-    fun title(s: SignalState) = (if (s.side == "BUY") "🟢 " else "🔴 ") + "XAUUSD ${s.side} ${s.price}"
+    fun title(s: SignalState) = (if (s.side == "BUY") "🔵 " else "🔴 ") + "XAUUSD ${s.side} ${s.price}"
 
     fun body(s: SignalState): String {
         val hora = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(s.openedAt))
@@ -86,7 +86,7 @@ object Notifier {
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setColor(if (s.side == "BUY") 0xFF15835A.toInt() else 0xFFC13A32.toInt())
+            .setColor(sideColor(s))
             .setContentIntent(openApp(ctx))
             .addAction(0, "Cerrar señal", close)
             .build()
@@ -94,6 +94,20 @@ object Notifier {
         addHyperIsland(ctx, n, s)
         try { nm.notify(ONGOING_ID, n) } catch (e: SecurityException) { }
     }
+
+    /** Icono ya pintado en un bitmap (la isla no siempre respeta el tinte). */
+    private fun coloredIcon(ctx: Context, color: Int): Icon {
+        val d = androidx.core.content.ContextCompat.getDrawable(ctx, R.drawable.ic_stat_signal)!!.mutate()
+        d.setTint(color)
+        val size = 96
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        d.setBounds(0, 0, size, size); d.draw(android.graphics.Canvas(bmp))
+        return Icon.createWithBitmap(bmp)
+    }
+
+    /** Compra en azul, venta en rojo. */
+    fun sideColor(s: SignalState): Int = if (s.side == "BUY") 0xFF2F7CF6.toInt() else 0xFFF0453A.toInt()
+    private fun sideHex(s: SignalState) = String.format("#%06X", sideColor(s) and 0xFFFFFF)
 
     private fun shortText(s: SignalState) =
         "${s.side} ${s.price}" + if (s.averages.isEmpty()) "" else " · ${s.averages.size}P"
@@ -109,19 +123,21 @@ object Notifier {
         try {
             val pic = "miui.focus.pic_signal"
             val sub = if (s.averages.isEmpty()) "Sin promedios" else "Promedios: " + s.averages.joinToString(" ")
-            val color = if (s.side == "BUY") "#15835A" else "#C13A32"
+            val color = sideHex(s)
             val picInfo = JSONObject().put("type", 1).put("pic", pic)
+            // Isla grande: texto a la izquierda, símbolo a la derecha. Compra en azul, venta en rojo.
             val island = JSONObject()
                 .put("islandProperty", 1)
                 .put("bigIslandArea", JSONObject()
                     .put("imageTextInfoLeft", JSONObject()
                         .put("type", 1)
-                        .put("picInfo", picInfo)
                         .put("textInfo", JSONObject()
-                            .put("frontTitle", "XAU")
                             .put("title", "${s.side} ${s.price}")
                             .put("content", if (s.averages.isEmpty()) "" else "${s.averages.size} prom.")
-                            .put("useHighLight", false))))
+                            .put("colorTitle", color)
+                            .put("colorTitleDark", color)
+                            .put("useHighLight", false)))
+                    .put("picInfo", picInfo))
                 .put("smallIslandArea", JSONObject().put("picInfo", picInfo))
             val param = JSONObject().put("param_v2", JSONObject()
                 .put("protocol", 1)
@@ -139,8 +155,7 @@ object Notifier {
                     .put("content", sub)
                     .put("colorTitle", color)))
             val pics = Bundle()
-            pics.putParcelable(pic, Icon.createWithResource(ctx, R.drawable.ic_stat_signal).setTint(
-                if (s.side == "BUY") 0xFF2BC184.toInt() else 0xFFF0564D.toInt()))
+            pics.putParcelable(pic, coloredIcon(ctx, sideColor(s)))
             n.extras.putBundle("miui.focus.pics", pics)
             n.extras.putString("miui.focus.param", param.toString())
         } catch (e: Exception) { }
