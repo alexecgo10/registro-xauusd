@@ -5,12 +5,24 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Necesario en Android 11+ para encontrar el navegador que muestra el registro. -->
+    <queries>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.RegistroXAU">
+
+        <!-- Vincula la app con alexecgo10.github.io para mostrar el registro sin barra de dirección. -->
+        <meta-data
+            android:name="asset_statements"
+            android:resource="@string/asset_statements" />
 
         <activity
             android:name=".MainActivity"

@@ -21,11 +21,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.browser.customtabs.CustomTabColorSchemeParams
+import androidx.browser.trusted.TrustedWebActivityIntentBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.androidbrowserhelper.trusted.QualityEnforcer
+import com.google.androidbrowserhelper.trusted.TwaLauncher
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var store: SignalStore
+    private var twa: TwaLauncher? = null
 
     private val changed = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) = refresh()
@@ -47,7 +52,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnBattery).setOnClickListener { askBattery() }
         findViewById<Button>(R.id.btnOpenWeb).setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(WEB_URL)))
+            openRegistro()
         }
         findViewById<Button>(R.id.btnClose).setOnClickListener {
             sendBroadcast(Intent(this, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE))
@@ -69,6 +74,24 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnTestAvg).setOnClickListener { test("Promedio 4150") }
         findViewById<Button>(R.id.btnTestCloseAvg).setOnClickListener { test("Cerramos el promedio este 4150\n\n-120 pips") }
         findViewById<Button>(R.id.btnTestClose).setOnClickListener { test("cerramos todo✅") }
+    }
+
+    /** Abre el registro web dentro de la app, a pantalla completa (con la sesión de Google de Chrome). */
+    private fun openRegistro() {
+        val band = ContextCompat.getColor(this, R.color.band)
+        val colors = CustomTabColorSchemeParams.Builder().setToolbarColor(band).setNavigationBarColor(band).build()
+        val builder = TrustedWebActivityIntentBuilder(Uri.parse(WEB_URL)).setDefaultColorSchemeParams(colors)
+        try {
+            twa?.destroy()
+            twa = TwaLauncher(this).also { it.launch(builder, QualityEnforcer(), null, null) }
+        } catch (e: Exception) {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(WEB_URL)))
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        twa?.destroy()
     }
 
     private fun test(text: String) {

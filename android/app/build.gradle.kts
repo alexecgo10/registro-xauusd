@@ -44,4 +44,6 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
+    // Abre el registro web a pantalla completa dentro de la app (Trusted Web Activity).
+    implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.5.0")
 }

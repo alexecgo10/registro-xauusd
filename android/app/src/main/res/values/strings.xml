@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Señales XAU</string>
     <string name="listener_label">Señales XAU · lector de Telegram</string>
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://alexecgo10.github.io\"}}]</string>
 </resources>

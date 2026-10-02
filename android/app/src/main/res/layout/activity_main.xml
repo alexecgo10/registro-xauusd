@@ -80,7 +80,7 @@
             android:layout_marginHorizontal="16dp"
             android:layout_marginTop="12dp"
             android:backgroundTint="@color/gold"
-            android:text="Abrir mi registro"
+            android:text="Mi registro"
             android:textColor="@color/band" />
 
         <!-- Permisos -->
