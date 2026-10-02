@@ -51,6 +51,12 @@ class MainActivity : AppCompatActivity() {
             } else openAppNotificationSettings()
         }
         findViewById<Button>(R.id.btnBattery).setOnClickListener { askBattery() }
+        findViewById<Button>(R.id.btnLive).setOnClickListener {
+            try {
+                startActivity(Intent("android.settings.MANAGE_APP_PROMOTED_NOTIFICATIONS")
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+            } catch (e: Exception) { openAppNotificationSettings() }
+        }
         findViewById<Button>(R.id.btnOpenWeb).setOnClickListener {
             openRegistro()
         }
@@ -135,6 +141,12 @@ class MainActivity : AppCompatActivity() {
             (if (batteryOk) "✅" else "⚠️") + "  Batería sin restricciones"
         findViewById<Button>(R.id.btnBattery).visibility = if (batteryOk) android.view.View.GONE else android.view.View.VISIBLE
 
+        // Android 16+: "actualizaciones en directo" (chip arriba / isla). En versiones anteriores no aplica.
+        val live = canPostPromoted()
+        findViewById<TextView>(R.id.txtLive).visibility = if (live == null) android.view.View.GONE else android.view.View.VISIBLE
+        findViewById<TextView>(R.id.txtLive).text = (if (live == true) "✅" else "❌") + "  Actualizaciones en directo (isla)"
+        findViewById<Button>(R.id.btnLive).visibility = if (live == false) android.view.View.VISIBLE else android.view.View.GONE
+
         val s = store.state()
         findViewById<TextView>(R.id.txtSignalTitle).text = s?.let { Notifier.title(it) } ?: "Sin señal abierta"
         findViewById<TextView>(R.id.txtSignalBody).text = s?.let { Notifier.body(it) }
@@ -144,6 +156,12 @@ class MainActivity : AppCompatActivity() {
         val h = store.history()
         findViewById<TextView>(R.id.txtHistory).text = if (h.isEmpty()) "Todavía no hay movimientos." else h.joinToString("\n")
     }
+
+    /** null si el sistema no tiene esta función (Android 15 o anterior). */
+    private fun canPostPromoted(): Boolean? = try {
+        val nm = getSystemService(android.app.NotificationManager::class.java)
+        nm.javaClass.getMethod("canPostPromotedNotifications").invoke(nm) as Boolean
+    } catch (e: Exception) { null }
 
     @SuppressLint("BatteryLife")
     private fun askBattery() {

@@ -7,6 +7,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
+import android.os.Bundle
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
@@ -18,6 +20,7 @@ import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import org.json.JSONObject
 
 /** Notificación fija con la señal abierta y avisos con sonido. */
 object Notifier {
@@ -87,7 +90,60 @@ object Notifier {
             .setContentIntent(openApp(ctx))
             .addAction(0, "Cerrar señal", close)
             .build()
+        addLiveUpdate(n, s)
+        addHyperIsland(ctx, n, s)
         try { nm.notify(ONGOING_ID, n) } catch (e: SecurityException) { }
+    }
+
+    private fun shortText(s: SignalState) =
+        "${s.side} ${s.price}" + if (s.averages.isEmpty()) "" else " · ${s.averages.size}P"
+
+    /** Android 16: pide que la notificación fija sea una "actualización en directo" (chip arriba / isla). */
+    private fun addLiveUpdate(n: android.app.Notification, s: SignalState) {
+        n.extras.putBoolean("android.requestPromotedOngoing", true)
+        n.extras.putCharSequence("android.shortCriticalText", shortText(s))
+    }
+
+    /** HyperOS: datos para la Hyper Island (si el sistema la deja usar a esta app). */
+    private fun addHyperIsland(ctx: Context, n: android.app.Notification, s: SignalState) {
+        try {
+            val pic = "miui.focus.pic_signal"
+            val sub = if (s.averages.isEmpty()) "Sin promedios" else "Promedios: " + s.averages.joinToString(" ")
+            val color = if (s.side == "BUY") "#15835A" else "#C13A32"
+            val picInfo = JSONObject().put("type", 1).put("pic", pic)
+            val island = JSONObject()
+                .put("islandProperty", 1)
+                .put("bigIslandArea", JSONObject()
+                    .put("imageTextInfoLeft", JSONObject()
+                        .put("type", 1)
+                        .put("picInfo", picInfo)
+                        .put("textInfo", JSONObject()
+                            .put("frontTitle", "XAU")
+                            .put("title", "${s.side} ${s.price}")
+                            .put("content", if (s.averages.isEmpty()) "" else "${s.averages.size} prom.")
+                            .put("useHighLight", false))))
+                .put("smallIslandArea", JSONObject().put("picInfo", picInfo))
+            val param = JSONObject().put("param_v2", JSONObject()
+                .put("protocol", 1)
+                .put("business", "signal")
+                .put("enableFloat", false)
+                .put("updatable", true)
+                .put("ticker", shortText(s))
+                .put("tickerPic", pic)
+                .put("aodTitle", shortText(s))
+                .put("aodPic", pic)
+                .put("param_island", island)
+                .put("baseInfo", JSONObject()
+                    .put("type", 2)
+                    .put("title", "XAUUSD ${s.side} ${s.price}")
+                    .put("content", sub)
+                    .put("colorTitle", color)))
+            val pics = Bundle()
+            pics.putParcelable(pic, Icon.createWithResource(ctx, R.drawable.ic_stat_signal).setTint(
+                if (s.side == "BUY") 0xFF2BC184.toInt() else 0xFFF0564D.toInt()))
+            n.extras.putBundle("miui.focus.pics", pics)
+            n.extras.putString("miui.focus.param", param.toString())
+        } catch (e: Exception) { }
     }
 
     /** Aviso puntual (abrir, promedio, cierre) con sonido por el canal de alarma. */
