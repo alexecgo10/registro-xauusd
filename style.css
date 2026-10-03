@@ -33,11 +33,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 .top{background:var(--band);color:var(--band-ink);padding:14px 16px 12px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .top-in{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .brand h1{margin:0;font-size:19px;font-weight:800;letter-spacing:.01em;font-variation-settings:"wdth" 112}
 .brand h1 b{color:var(--gold);font-weight:800}
-.brand .bal{font-family:var(--f-num);font-size:13px;color:var(--band-dim);text-align:right}
-.brand .bal strong{display:block;color:var(--band-ink);font-size:16px;font-weight:600}
+.brand .bal{font-family:var(--f-num);font-size:12px;line-height:1.2;color:var(--band-dim);text-align:right}
+.brand .bal strong{display:block;color:var(--band-ink);font-size:16px;font-weight:600;line-height:1.25}
 .accs{display:flex;gap:6px;overflow-x:auto}
 .acc{border:1px solid color-mix(in oklab,var(--band-ink) 25%,transparent);background:transparent;color:var(--band-dim);border-radius:999px;padding:5px 12px;font-size:13px;white-space:nowrap;cursor:pointer}
 .acc[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#13254A;font-weight:700}
