@@ -25,6 +25,7 @@ import org.json.JSONObject
 /** Notificación fija con la señal abierta y avisos con sonido. */
 object Notifier {
     const val ONGOING_ID = 1001
+    const val FLOAT_ID = 1004
     private const val ALERT_ID = 1002
     private const val CH_ONGOING = "signal_ongoing"
     private const val CH_ALERT = "signal_alert"
@@ -74,27 +75,65 @@ object Notifier {
         return "$sign$n $"
     }
 
-    /** Muestra, actualiza o quita la notificación fija: señal abierta y/o flotante de Myfxbook. */
+    /** Actualiza las dos notificaciones fijas (cada una con su isla): la señal y el flotante. */
     fun showOngoing(ctx: Context) {
         ensureChannels(ctx)
+        showSignal(ctx)
+        showFloating(ctx)
+    }
+
+    private fun promote(n: android.app.Notification, chip: String) {
+        // Android 16: "actualización en directo" → aparece en la isla con este texto corto.
+        n.extras.putBoolean("android.requestPromotedOngoing", true)
+        n.extras.putCharSequence("android.shortCriticalText", chip)
+    }
+
+    /** Isla 1: la señal abierta de LIFT.SIGNALS. */
+    private fun showSignal(ctx: Context) {
+        val nm = NotificationManagerCompat.from(ctx)
+        val s = SignalStore(ctx).state()
+        if (s == null) { nm.cancel(ONGOING_ID); return }
+        if (!canNotify(ctx)) return
+        val close = PendingIntent.getBroadcast(
+            ctx, 1, Intent(ctx, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val n = NotificationCompat.Builder(ctx, CH_ONGOING)
+            .setSmallIcon(if (s.side == "BUY") R.drawable.ic_up else R.drawable.ic_down)
+            .setContentTitle(title(s))
+            .setContentText(body(s))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body(s)))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setColor(sideColor(s))
+            .setContentIntent(openApp(ctx))
+            .setSortKey("1")
+            .addAction(0, "Cerrar señal", close)
+            .build()
+        promote(n, (if (s.side == "BUY") "🔵 " else "🔴 ") + shortText(s))
+        addHyperIsland(ctx, n, s)
+        try { nm.notify(ONGOING_ID, n) } catch (e: SecurityException) { }
+    }
+
+    /** Isla 2: el flotante de Myfxbook (solo si hay operaciones abiertas). */
+    private fun showFloating(ctx: Context) {
         val nm = NotificationManagerCompat.from(ctx)
         val store = SignalStore(ctx)
-        val s = store.state()
         val f = if (store.mfxOn) store.floating?.takeIf { kotlin.math.abs(it) > 0.005 } else null
-        if (s == null && f == null) { nm.cancel(ONGOING_ID); return }
+        if (f == null) { nm.cancel(FLOAT_ID); return }
         if (!canNotify(ctx)) return
-
-        val upd = store.floatingUpdated.takeLast(5).let { if (it.isBlank()) "" else "Myfxbook $it" }
-        val title = s?.let { title(it) } ?: "📊 Flotante ${money(f!!)}"
-        val body = if (s != null)
-            listOfNotNull(body(s), f?.let { "Flotante ${money(it)}" + if (upd.isNotEmpty()) " · $upd" else "" }).joinToString("\n")
-        else upd.ifEmpty { "Operaciones abiertas" }
-        val chip = listOfNotNull(s?.let { shortText(it) }, f?.let { money(it, true) }).joinToString(" · ")
-        val emoji = when (s?.side) { "BUY" -> "🔵 "; "SELL" -> "🔴 "; else -> if ((f ?: 0.0) < 0) "📉 " else "📈 " }
-
-        val b = NotificationCompat.Builder(ctx, CH_ONGOING)
-            .setSmallIcon(when (s?.side) { "BUY" -> R.drawable.ic_up; "SELL" -> R.drawable.ic_down; else -> R.drawable.ic_stat_signal })
-            .setContentTitle(title)
+        val emoji = if (f < 0) "📉" else "📈"
+        val lines = listOfNotNull(
+            store.mfxDetail.takeIf { store.mfxAccount == "all" && it.contains("\n") },
+            store.floatingUpdated.takeIf { it.isNotBlank() }?.let { "Myfxbook sincronizado: $it" }
+        )
+        val body = lines.joinToString("\n").ifEmpty { "Operaciones abiertas (Myfxbook)" }
+        val n = NotificationCompat.Builder(ctx, CH_ONGOING)
+            .setSmallIcon(R.drawable.ic_stat_signal)
+            .setContentTitle("$emoji Flotante ${money(f)}")
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setOngoing(true)
@@ -102,21 +141,12 @@ object Notifier {
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setColor(s?.let { sideColor(it) } ?: 0xFFD7AC57.toInt())
+            .setColor(if (f < 0) 0xFFF0453A.toInt() else 0xFF22A06B.toInt())
             .setContentIntent(openApp(ctx))
-        if (s != null) {
-            val close = PendingIntent.getBroadcast(
-                ctx, 1, Intent(ctx, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            b.addAction(0, "Cerrar señal", close)
-        }
-        val n = b.build()
-        // Android 16: "actualización en directo" → aparece en la isla con este texto corto.
-        n.extras.putBoolean("android.requestPromotedOngoing", true)
-        n.extras.putCharSequence("android.shortCriticalText", emoji + chip)
-        if (s != null) addHyperIsland(ctx, n, s)
-        try { nm.notify(ONGOING_ID, n) } catch (e: SecurityException) { }
+            .setSortKey("2")
+            .build()
+        promote(n, "$emoji ${money(f, true)}")
+        try { nm.notify(FLOAT_ID, n) } catch (e: SecurityException) { }
     }
 
     /** Icono ya pintado en un bitmap (la isla no siempre respeta el tinte). */
