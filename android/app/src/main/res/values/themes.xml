@@ -33,4 +33,22 @@
         <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/ink</item>
     </style>
+
+    <style name="BtnOutlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:textColor">@color/ink2</item>
+        <item name="strokeColor">@color/ink2</item>
+    </style>
+
+    <style name="BtnTonal" parent="Widget.Material3.Button.TonalButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="Sw">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">15sp</item>
+    </style>
 </resources>

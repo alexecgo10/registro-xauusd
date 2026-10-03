@@ -3,7 +3,7 @@
     <color name="surface">#FFFFFF</color>
     <color name="ink">#0F1B33</color>
     <color name="ink2">#46516B</color>
-    <color name="muted">#7D879C</color>
+    <color name="muted">#46516B</color>
     <color name="band">#13254A</color>
     <color name="band_ink">#F6F1E4</color>
     <color name="band_dim">#9FB0D0</color>

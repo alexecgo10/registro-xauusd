@@ -1,6 +1,6 @@
 import { readShot } from './shot.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signInWithCredential, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, addDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // Configuración pública del proyecto Firebase (no es secreta: el acceso a los datos
@@ -704,6 +704,7 @@ let unsubs=[];
 function stopListeners(){ unsubs.forEach(f=>{ try{f();}catch(e){} }); unsubs=[]; }
 onAuthStateChanged(auth, user=>{
   stopListeners();
+  if (window.SenalesApp) { try{ SenalesApp.onAuth(user ? (user.email||user.displayName||'Sesión iniciada') : ''); }catch(e){} }
   if(!user){ $('login').hidden=false; db=null; days=[]; entries=[]; cfg=structuredClone(DEFAULT_CFG); render(); return; }
   $('login').hidden=true;
   $('userLine').textContent='Sesión iniciada como '+(user.email||user.displayName||'tu cuenta')+'. Los datos se sincronizan solos.';
@@ -712,8 +713,16 @@ onAuthStateChanged(auth, user=>{
   unsubs.push(db.collection('entries').limit(1000).onSnapshot(s=>{ entries=s.docs.map(d=>({...d.data(),_id:d.id})); render(); }, e=>console.error(e)));
   unsubs.push(db.doc('config/main').onSnapshot(s=>{ cfg = s.exists ? {...structuredClone(DEFAULT_CFG), ...s.data()} : structuredClone(DEFAULT_CFG); render(); }, e=>console.error(e)));
 });
+// Dentro de la app Android, Google no deja iniciar sesión en la página: lo hace la app y nos pasa el token.
+window.nativeSignIn = async token => {
+  try{ await signInWithCredential(auth, GoogleAuthProvider.credential(token)); $('loginMsg').hidden=true; }
+  catch(e){ showMsg($('loginMsg'),'No se pudo iniciar sesión ('+(e&&e.code||'error')+').','err'); }
+};
+window.nativeSignInError = msg => showMsg($('loginMsg'), msg, 'err');
+window.appSignOut = () => signOut(auth);
 $('gbtn').addEventListener('click', async()=>{
   const m=$('loginMsg'); showMsg(m,'Abriendo Google…');
+  if (window.SenalesApp){ SenalesApp.googleSignIn(); return; }
   try{ await signInWithPopup(auth, provider); m.hidden=true; }
   catch(e){
     if (e && (e.code==='auth/popup-blocked' || e.code==='auth/operation-not-supported-in-this-environment' || e.code==='auth/cancelled-popup-request')){ try{ await signInWithRedirect(auth, provider); return; }catch(e2){ e=e2; } }
@@ -724,6 +733,7 @@ getRedirectResult(auth).catch(e=>showMsg($('loginMsg'),'No se pudo iniciar sesi�
 $('logout').addEventListener('click', async e=>{ const b=e.currentTarget; if(!b.dataset.armed){ b.dataset.armed='1'; b.textContent='Pulsa otra vez para salir'; return; } await signOut(auth); b.dataset.armed=''; b.textContent='Cerrar sesión'; });
 $('bkExport').addEventListener('click',()=>{
   const data={app:'registro-xauusd',version:1,exported:new Date().toISOString(),days,entries:entries.map(({_id,...r})=>({...r,id:_id})),config:cfg};
+  if (window.SenalesApp){ SenalesApp.saveFile('registro-xauusd-copia-'+todayStr()+'.json', JSON.stringify(data,null,1)); showMsg($('bkMsg'),`Copia guardada: ${days.length} días, ${entries.length} movimientos.`,'ok'); return; }
   const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'}); const a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download='registro-xauusd-copia-'+todayStr()+'.json'; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000); showMsg($('bkMsg'),`Copia descargada: ${days.length} días, ${entries.length} movimientos.`,'ok');

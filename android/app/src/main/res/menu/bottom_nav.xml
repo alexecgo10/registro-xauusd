@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/tabSignal" android:icon="@drawable/ic_tab_signal" android:title="Señal" />
+    <item android:id="@+id/tabWeb" android:icon="@drawable/ic_tab_book" android:title="Registro" />
+    <item android:id="@+id/tabHistory" android:icon="@drawable/ic_tab_history" android:title="Historial" />
+    <item android:id="@+id/tabSettings" android:icon="@drawable/ic_tab_settings" android:title="Ajustes" />
+</menu>
