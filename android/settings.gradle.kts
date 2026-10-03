@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "RegistroXAUUSD"
-include(":app")
+include(":app", ":prueba")
