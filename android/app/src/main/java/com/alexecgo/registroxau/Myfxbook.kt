@@ -113,7 +113,8 @@ object Myfxbook {
     /** Fuerza una lectura ahora (p. ej. al conectar desde la app). */
     fun kick(ctx: Context) {
         appCtx = ctx.applicationContext
-        if (handler == null) start(ctx) else { handler!!.removeCallbacks(loop); handler!!.post(loop) }
+        if (handler == null || thread?.isAlive != true) { thread = null; start(ctx) }
+        else { handler!!.removeCallbacks(loop); handler!!.post(loop) }
     }
 
     private val loop = object : Runnable {

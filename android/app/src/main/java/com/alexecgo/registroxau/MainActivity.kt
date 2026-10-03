@@ -132,6 +132,8 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onStart() {
         super.onStart()
+        // Al abrir la app, pide el flotante al momento (no esperar al siguiente ciclo).
+        if (store.mfxOn && store.mfxEmail.isNotEmpty()) Myfxbook.kick(this)
         ContextCompat.registerReceiver(
             this, changed, IntentFilter(SignalListenerService.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED
         )

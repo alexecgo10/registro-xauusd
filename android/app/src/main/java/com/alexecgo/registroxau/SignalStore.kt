@@ -60,11 +60,11 @@ class SignalStore(context: Context) {
         get() = prefs.getString("mfxError", "") ?: ""
         set(v) = prefs.edit().putString("mfxError", v).apply()
 
-    /** Flotante en $ si la última lectura tiene menos de 15 minutos. */
+    /** Flotante en $ si la última lectura tiene menos de 3 horas (si la app estuvo dormida, mejor el último dato que nada). */
     val floating: Double?
         get() {
             if (!prefs.contains("floating")) return null
-            if (System.currentTimeMillis() - prefs.getLong("floatingAt", 0) > 15 * 60_000L) return null
+            if (System.currentTimeMillis() - prefs.getLong("floatingAt", 0) > 3 * 60 * 60_000L) return null
             return prefs.getFloat("floating", 0f).toDouble()
         }
     val floatingUpdated: String get() = prefs.getString("floatingUpd", "") ?: ""
