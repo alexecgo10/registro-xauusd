@@ -262,8 +262,6 @@ class MainActivity : AppCompatActivity() {
         sp.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
         sp.setSelection(mfxIds.indexOf(store.mfxAccount).coerceAtLeast(0))
         sp.post { fillingSpinner = false }
-
-    }
     }
 
     // ---------- Registro (web dentro de la app) ----------
