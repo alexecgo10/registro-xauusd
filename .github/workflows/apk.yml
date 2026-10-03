@@ -26,7 +26,12 @@ jobs:
 
       - name: Compilar APK
         working-directory: android
-        run: gradle :app:assembleDebug :prueba:assembleDebug --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug :prueba:assembleDebug --no-daemon 2>&1 | tee build.log || {
+            grep -E '^e: |error:|ERROR:' build.log | head -30 | sed 's/^/::error::/'
+            exit 1
+          }
 
       - name: Preparar archivo
         run: |
