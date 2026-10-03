@@ -14,6 +14,12 @@ class SignalListenerService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         Notifier.showOngoing(this)
+        Myfxbook.start(this) // flotante de Myfxbook (si está activado)
+    }
+
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        Myfxbook.stop()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -22,7 +28,8 @@ class SignalListenerService : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         // Si se quita nuestra notificación fija con una señal abierta, la volvemos a poner.
-        if (sbn.packageName == packageName && sbn.id == Notifier.ONGOING_ID && SignalStore(this).state() != null) {
+        if (sbn.packageName == packageName && sbn.id == Notifier.ONGOING_ID &&
+            (SignalStore(this).state() != null || (SignalStore(this).mfxOn && SignalStore(this).floating != null))) {
             Notifier.showOngoing(this)
         }
     }

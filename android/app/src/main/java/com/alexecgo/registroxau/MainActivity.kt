@@ -14,7 +14,10 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Button
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.EditText
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -82,6 +85,8 @@ class MainActivity : AppCompatActivity() {
                 Alarm.start(this, "Prueba de alarma", "Así sonará cuando llegue una señal")
             }, 10_000)
         }
+
+        setupMyfxbook()
 
         val filter = findViewById<EditText>(R.id.inputTitle)
         val sound = findViewById<MaterialSwitch>(R.id.switchSound)
@@ -173,6 +178,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnTestAlarm).visibility =
             if (store.alarmMode) android.view.View.VISIBLE else android.view.View.GONE
 
+        refreshMyfxbook()
+
         val s = store.state()
         findViewById<TextView>(R.id.txtSignalTitle).text = s?.let { Notifier.title(it) } ?: "Sin señal abierta"
         findViewById<TextView>(R.id.txtSignalBody).text = s?.let { Notifier.body(it) }
@@ -182,6 +189,73 @@ class MainActivity : AppCompatActivity() {
         val h = store.history()
         findViewById<TextView>(R.id.txtHistory).text = if (h.isEmpty()) "Todavía no hay movimientos." else h.joinToString("\n")
     }
+
+    // ---------- Myfxbook ----------
+    private var mfxIds: List<String> = emptyList()
+    private var fillingSpinner = false
+
+    private fun setupMyfxbook() {
+        val sw = findViewById<MaterialSwitch>(R.id.switchMfx)
+        val email = findViewById<EditText>(R.id.inputMfxEmail)
+        val pass = findViewById<EditText>(R.id.inputMfxPass)
+        email.setText(store.mfxEmail)
+        if (store.mfxPassword.isNotEmpty()) pass.hint = "Contraseña guardada (escríbela para cambiarla)"
+        sw.isChecked = store.mfxOn
+        sw.setOnCheckedChangeListener { _, on ->
+            store.mfxOn = on
+            if (on && store.mfxEmail.isNotEmpty()) Myfxbook.kick(this) else Notifier.showOngoing(this)
+            refresh()
+        }
+        findViewById<Button>(R.id.btnMfx).setOnClickListener {
+            val e = email.text.toString().trim()
+            val p = pass.text.toString().ifEmpty { store.mfxPassword }
+            if (e.isEmpty() || p.isEmpty()) { toast("Escribe el email y la contraseña de Myfxbook"); return@setOnClickListener }
+            findViewById<TextView>(R.id.txtMfx).text = "Conectando…"
+            Thread {
+                val err = try { Myfxbook.login(this, e, p); store.mfxOn = true; Myfxbook.refresh(this) } catch (x: Exception) { x.message ?: "Error" }
+                runOnUiThread {
+                    if (err.isEmpty()) {
+                        pass.setText(""); pass.hint = "Contraseña guardada (escríbela para cambiarla)"
+                        sw.isChecked = true; Myfxbook.kick(this); toast("Conectado a Myfxbook")
+                    } else toast("Myfxbook: $err")
+                    refresh()
+                }
+            }.start()
+        }
+        findViewById<Spinner>(R.id.spinnerMfx).onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
+                if (fillingSpinner) return
+                val sel = mfxIds.getOrNull(pos) ?: return
+                if (sel != store.mfxAccount) { store.mfxAccount = sel; store.clearFloating(); Myfxbook.kick(this@MainActivity) }
+            }
+            override fun onNothingSelected(p: AdapterView<*>?) {}
+        }
+    }
+
+    private fun refreshMyfxbook() {
+        val on = store.mfxOn
+        findViewById<android.view.View>(R.id.boxMfx).visibility =
+            if (on || store.mfxEmail.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+        val f = store.floating
+        findViewById<TextView>(R.id.txtMfx).text = when {
+            store.mfxEmail.isEmpty() -> "Conecta tu cuenta de Myfxbook para ver el flotante en la isla. Se actualiza cada minuto, con el retraso con el que Myfxbook se sincroniza con MT5."
+            !on -> "Desactivado."
+            store.mfxError.isNotEmpty() && f == null -> "⚠️ ${store.mfxError}"
+            f == null -> "Esperando datos de Myfxbook…"
+            else -> "Flotante ahora: ${Notifier.money(f)}" + store.floatingUpdated.let { if (it.isNotBlank()) " · actualizado en Myfxbook $it" else "" }
+        }
+        // Selector de cuenta
+        val items = store.mfxAccounts.split("|").filter { it.contains("~") }.map { it.substringBefore("~") to it.substringAfter("~") }
+        mfxIds = listOf("all") + items.map { it.first }
+        val labels = listOf("Todas (suma)") + items.map { it.second }
+        val sp = findViewById<Spinner>(R.id.spinnerMfx)
+        fillingSpinner = true
+        sp.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
+        sp.setSelection(mfxIds.indexOf(store.mfxAccount).coerceAtLeast(0))
+        sp.post { fillingSpinner = false }
+    }
+
+    private fun toast(t: String) = Toast.makeText(this, t, Toast.LENGTH_LONG).show()
 
     /** null si el sistema no tiene esta función (Android 15 o anterior). */
     private fun canPostPromoted(): Boolean? = try {

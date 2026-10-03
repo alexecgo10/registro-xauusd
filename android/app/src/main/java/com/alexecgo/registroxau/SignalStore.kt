@@ -33,6 +33,43 @@ class SignalStore(context: Context) {
         get() = prefs.getBoolean("alarmMode", false)
         set(v) = prefs.edit().putBoolean("alarmMode", v).apply()
 
+    // --- Myfxbook (flotante). Se guarda solo en este móvil. ---
+    var mfxOn: Boolean
+        get() = prefs.getBoolean("mfxOn", false)
+        set(v) = prefs.edit().putBoolean("mfxOn", v).apply()
+    var mfxEmail: String
+        get() = prefs.getString("mfxEmail", "") ?: ""
+        set(v) = prefs.edit().putString("mfxEmail", v).apply()
+    var mfxPassword: String
+        get() = prefs.getString("mfxPassword", "") ?: ""
+        set(v) = prefs.edit().putString("mfxPassword", v).apply()
+    var mfxSession: String
+        get() = prefs.getString("mfxSession", "") ?: ""
+        set(v) = prefs.edit().putString("mfxSession", v).apply()
+    var mfxAccount: String
+        get() = prefs.getString("mfxAccount", "all") ?: "all"
+        set(v) = prefs.edit().putString("mfxAccount", v).apply()
+    /** Lista "id~nombre|id~nombre" de la última lectura, para el selector. */
+    var mfxAccounts: String
+        get() = prefs.getString("mfxAccounts", "") ?: ""
+        set(v) = prefs.edit().putString("mfxAccounts", v).apply()
+    var mfxError: String
+        get() = prefs.getString("mfxError", "") ?: ""
+        set(v) = prefs.edit().putString("mfxError", v).apply()
+
+    /** Flotante en $ si la última lectura tiene menos de 15 minutos. */
+    val floating: Double?
+        get() {
+            if (!prefs.contains("floating")) return null
+            if (System.currentTimeMillis() - prefs.getLong("floatingAt", 0) > 15 * 60_000L) return null
+            return prefs.getFloat("floating", 0f).toDouble()
+        }
+    val floatingUpdated: String get() = prefs.getString("floatingUpd", "") ?: ""
+    fun setFloating(v: Double, updated: String) = prefs.edit()
+        .putFloat("floating", v.toFloat()).putLong("floatingAt", System.currentTimeMillis())
+        .putString("floatingUpd", updated).remove("mfxError").apply()
+    fun clearFloating() = prefs.edit().remove("floating").remove("floatingAt").apply()
+
     fun state(): SignalState? {
         val raw = prefs.getString("state", null) ?: return null
         return try {

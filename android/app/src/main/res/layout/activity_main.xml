@@ -113,6 +113,63 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Flotante (Myfxbook) -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView style="@style/Eyebrow" android:text="Flotante en la isla (Myfxbook)" />
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchMfx"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Mostrar el flotante"
+                    android:textColor="@color/ink"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/txtMfx"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/ink2"
+                    android:textSize="13sp" />
+                <LinearLayout
+                    android:id="@+id/boxMfx"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <EditText
+                        android:id="@+id/inputMfxEmail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Email de Myfxbook"
+                        android:inputType="textEmailAddress"
+                        android:textColor="@color/ink" />
+                    <EditText
+                        android:id="@+id/inputMfxPass"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Contraseña de Myfxbook"
+                        android:inputType="textPassword"
+                        android:textColor="@color/ink" />
+                    <Button android:id="@+id/btnMfx" style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Conectar" />
+                    <TextView style="@style/Line" android:text="Cuenta" />
+                    <Spinner
+                        android:id="@+id/spinnerMfx"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Ajustes -->
         <com.google.android.material.card.MaterialCardView
             style="@style/Card"

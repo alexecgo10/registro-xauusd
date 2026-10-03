@@ -65,33 +65,57 @@ object Notifier {
         return "Abierta a las $hora · $prom"
     }
 
-    /** Muestra, actualiza o quita la notificación fija según el estado guardado. */
+    /** Flotante con signo: "−56 $" (corto, para la isla) o "−56,34 $" (completo). */
+    fun money(v: Double, short: Boolean = false): String {
+        val sign = if (v < 0) "−" else "+"
+        val n = java.text.NumberFormat.getNumberInstance(Locale("es", "ES")).apply {
+            maximumFractionDigits = if (short) 0 else 2; minimumFractionDigits = if (short) 0 else 2
+        }.format(kotlin.math.abs(v))
+        return "$sign$n $"
+    }
+
+    /** Muestra, actualiza o quita la notificación fija: señal abierta y/o flotante de Myfxbook. */
     fun showOngoing(ctx: Context) {
         ensureChannels(ctx)
         val nm = NotificationManagerCompat.from(ctx)
-        val s = SignalStore(ctx).state()
-        if (s == null) { nm.cancel(ONGOING_ID); return }
+        val store = SignalStore(ctx)
+        val s = store.state()
+        val f = if (store.mfxOn) store.floating?.takeIf { kotlin.math.abs(it) > 0.005 } else null
+        if (s == null && f == null) { nm.cancel(ONGOING_ID); return }
         if (!canNotify(ctx)) return
-        val close = PendingIntent.getBroadcast(
-            ctx, 1, Intent(ctx, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        val n = NotificationCompat.Builder(ctx, CH_ONGOING)
-            .setSmallIcon(R.drawable.ic_stat_signal)
-            .setContentTitle(title(s))
-            .setContentText(body(s))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body(s)))
+
+        val upd = store.floatingUpdated.takeLast(5).let { if (it.isBlank()) "" else "Myfxbook $it" }
+        val title = s?.let { title(it) } ?: "📊 Flotante ${money(f!!)}"
+        val body = if (s != null)
+            listOfNotNull(body(s), f?.let { "Flotante ${money(it)}" + if (upd.isNotEmpty()) " · $upd" else "" }).joinToString("\n")
+        else upd.ifEmpty { "Operaciones abiertas" }
+        val chip = listOfNotNull(s?.let { shortText(it) }, f?.let { money(it, true) }).joinToString(" · ")
+        val emoji = when (s?.side) { "BUY" -> "🔵 "; "SELL" -> "🔴 "; else -> if ((f ?: 0.0) < 0) "📉 " else "📈 " }
+
+        val b = NotificationCompat.Builder(ctx, CH_ONGOING)
+            .setSmallIcon(when (s?.side) { "BUY" -> R.drawable.ic_up; "SELL" -> R.drawable.ic_down; else -> R.drawable.ic_stat_signal })
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setColor(sideColor(s))
+            .setColor(s?.let { sideColor(it) } ?: 0xFFD7AC57.toInt())
             .setContentIntent(openApp(ctx))
-            .addAction(0, "Cerrar señal", close)
-            .build()
-        addLiveUpdate(n, s)
-        addHyperIsland(ctx, n, s)
+        if (s != null) {
+            val close = PendingIntent.getBroadcast(
+                ctx, 1, Intent(ctx, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            b.addAction(0, "Cerrar señal", close)
+        }
+        val n = b.build()
+        // Android 16: "actualización en directo" → aparece en la isla con este texto corto.
+        n.extras.putBoolean("android.requestPromotedOngoing", true)
+        n.extras.putCharSequence("android.shortCriticalText", emoji + chip)
+        if (s != null) addHyperIsland(ctx, n, s)
         try { nm.notify(ONGOING_ID, n) } catch (e: SecurityException) { }
     }
 
@@ -111,12 +135,6 @@ object Notifier {
 
     private fun shortText(s: SignalState) =
         "${s.side} ${s.price}" + if (s.averages.isEmpty()) "" else " · ${s.averages.size}P"
-
-    /** Android 16: pide que la notificación fija sea una "actualización en directo" (chip arriba / isla). */
-    private fun addLiveUpdate(n: android.app.Notification, s: SignalState) {
-        n.extras.putBoolean("android.requestPromotedOngoing", true)
-        n.extras.putCharSequence("android.shortCriticalText", shortText(s))
-    }
 
     /** HyperOS: datos para la Hyper Island (si el sistema la deja usar a esta app). */
     private fun addHyperIsland(ctx: Context, n: android.app.Notification, s: SignalState) {
