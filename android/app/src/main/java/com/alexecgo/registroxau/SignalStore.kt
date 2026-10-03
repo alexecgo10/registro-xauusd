@@ -53,6 +53,9 @@ class SignalStore(context: Context) {
     var mfxAccounts: String
         get() = prefs.getString("mfxAccounts", "") ?: ""
         set(v) = prefs.edit().putString("mfxAccounts", v).apply()
+    var mfxDetail: String
+        get() = prefs.getString("mfxDetail", "") ?: ""
+        set(v) = prefs.edit().putString("mfxDetail", v).apply()
     var mfxError: String
         get() = prefs.getString("mfxError", "") ?: ""
         set(v) = prefs.edit().putString("mfxError", v).apply()

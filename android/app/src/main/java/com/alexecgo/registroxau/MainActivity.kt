@@ -242,7 +242,9 @@ class MainActivity : AppCompatActivity() {
             !on -> "Desactivado."
             store.mfxError.isNotEmpty() && f == null -> "⚠️ ${store.mfxError}"
             f == null -> "Esperando datos de Myfxbook…"
-            else -> "Flotante ahora: ${Notifier.money(f)}" + store.floatingUpdated.let { if (it.isNotBlank()) " · actualizado en Myfxbook $it" else "" }
+            else -> "Flotante ahora: ${Notifier.money(f)}" +
+                (if (store.mfxAccount == "all" && store.mfxDetail.isNotBlank()) "\n" + store.mfxDetail else "") +
+                store.floatingUpdated.let { if (it.isNotBlank()) "\nÚltima sincronización de Myfxbook con MT5: $it" else "" }
         }
         // Selector de cuenta
         val items = store.mfxAccounts.split("|").filter { it.contains("~") }.map { it.substringBefore("~") to it.substringAfter("~") }

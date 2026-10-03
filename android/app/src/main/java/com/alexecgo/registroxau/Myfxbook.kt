@@ -9,7 +9,7 @@ import java.net.URL
 import java.net.URLEncoder
 
 /** Una cuenta de Myfxbook con su flotante (ya en dólares). */
-data class MfxAccount(val id: String, val name: String, val number: String, val balance: Double, val equity: Double, val updated: String) {
+data class MfxAccount(val id: String, val name: String, val number: String, val balance: Double, val equity: Double, val updated: String, val k: Double = 1.0) {
     val floating get() = equity - balance
 }
 
@@ -62,10 +62,20 @@ object Myfxbook {
             val k = if (cur.contains("USC", true) || cur.contains("cent", true)) 0.01 else 1.0 // cuentas en céntimos
             MfxAccount(
                 a.optString("id"), a.optString("name"), a.optString("accountId"),
-                a.optDouble("balance", 0.0) * k, a.optDouble("equity", 0.0) * k, a.optString("lastUpdateDate", "")
+                a.optDouble("balance", 0.0) * k, a.optDouble("equity", 0.0) * k, a.optString("lastUpdateDate", ""), k
             )
         }
     }
+
+    /** Suma el "beneficio neto" de las operaciones abiertas (lo mismo que el Total de la web). */
+    private fun openProfit(ctx: Context, acc: MfxAccount, k: Double): Double? = try {
+        val st = SignalStore(ctx)
+        val r = get("${API}get-open-trades.json?session=${enc(st.mfxSession)}&id=${enc(acc.id)}")
+        if (r.optBoolean("error", false)) null else {
+            val arr = r.optJSONArray("openTrades")
+            if (arr == null) null else (0 until arr.length()).sumOf { arr.getJSONObject(it).optDouble("profit", 0.0) } * k
+        }
+    } catch (e: Exception) { null }
 
     /** Una lectura: guarda el flotante de la cuenta elegida (o la suma) y actualiza la isla. */
     fun refresh(ctx: Context): String {
@@ -74,8 +84,11 @@ object Myfxbook {
             val list = accounts(ctx)
             st.mfxAccounts = list.joinToString("|") { "${it.id}~${it.name} (${it.number})" }
             val sel = if (st.mfxAccount == "all") list else list.filter { it.id == st.mfxAccount }.ifEmpty { list.take(1) }
-            val f = sel.sumOf { it.floating }
-            st.setFloating(f, sel.firstOrNull()?.updated ?: "")
+            // Flotante por cuenta: operaciones abiertas (como la web); si falla, equity − balance.
+            val per = sel.map { a -> a to (openProfit(ctx, a, a.k) ?: a.floating) }
+            val f = per.sumOf { it.second }
+            st.mfxDetail = per.joinToString("\n") { (a, v) -> "• ${a.name}: ${Notifier.money(v)}" }
+            st.setFloating(f, sel.maxOfOrNull { it.updated } ?: "")
             Notifier.showOngoing(ctx)
             ""
         } catch (e: Exception) {
