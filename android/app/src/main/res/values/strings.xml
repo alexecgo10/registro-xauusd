@@ -3,5 +3,5 @@
     <string name="listener_label">Señales XAU · lector de Telegram</string>
     <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://alexecgo10.github.io\"}}]</string>
     <!-- ID de cliente web de Google (Firebase → Authentication → Google). -->
-    <string name="google_web_client_id" translatable="false">PENDIENTE</string>
+    <string name="google_web_client_id" translatable="false">897912027374-jjqh0nijqcmllve3e4v2pkgllhu877qd.apps.googleusercontent.com</string>
 </resources>
