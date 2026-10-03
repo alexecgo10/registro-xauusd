@@ -114,7 +114,9 @@ object Myfxbook {
             }
             st.saveTrades(trades); st.saveOrders(orders)
             st.mfxDetail = per.joinToString("\n") { (a, v) -> "• ${a.name}: ${Notifier.money(v)}" }
-            st.setFloating(per.sumOf { it.second }, sel.maxOfOrNull { it.updated } ?: "")
+            val upd = sel.maxOfOrNull { it.updated } ?: ""
+            st.noteMfxUpdate(upd)
+            st.setFloating(per.sumOf { it.second }, upd)
             ""
         } catch (e: Exception) {
             st.mfxError = e.message ?: "Error"
@@ -174,7 +176,7 @@ object Myfxbook {
             val q = st.quote
             val next = when {
                 uiVisible -> 3_000L
-                mfx && (st.trades().isNotEmpty() || st.orders().isNotEmpty()) -> if (q?.closed == true) 120_000L else 20_000L
+                mfx && (st.trades().isNotEmpty() || st.orders().isNotEmpty()) -> if (q?.closed == true) 120_000L else st.bgInterval * 1000L
                 else -> 60_000L
             }
             handler?.postDelayed(this, next)

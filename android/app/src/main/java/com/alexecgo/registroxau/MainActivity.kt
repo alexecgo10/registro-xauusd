@@ -31,6 +31,8 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import android.widget.RadioGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -88,6 +90,7 @@ class MainActivity : AppCompatActivity() {
         setupSignal()
         setupSettings()
         setupMyfxbook()
+        setupSwipe()
         loadWeb() // se carga en segundo plano: la pestaña Registro abre al instante
     }
 
@@ -115,6 +118,13 @@ class MainActivity : AppCompatActivity() {
         val sched = findViewById<MaterialSwitch>(R.id.switchSched)
         sched.isChecked = store.alarmSched
         sched.setOnCheckedChangeListener { _, on -> store.alarmSched = on; refresh() }
+        val dnd = findViewById<MaterialSwitch>(R.id.switchDnd)
+        dnd.isChecked = store.dnd
+        dnd.setOnCheckedChangeListener { _, on ->
+            store.dnd = on
+            if (on) Alarm.stop(this)
+            toast(if (on) "No molestar activado" else "No molestar desactivado")
+        }
         val alarm = findViewById<MaterialSwitch>(R.id.switchAlarm)
         alarm.isChecked = store.alarmMode
         alarm.setOnCheckedChangeListener { _, on ->
@@ -150,6 +160,12 @@ class MainActivity : AppCompatActivity() {
             if (googleEmail.isNotEmpty()) {
                 loadWeb(); web.evaluateJavascript("window.appSignOut && window.appSignOut()", null)
             } else googleSignIn()
+        }
+
+        val rg = findViewById<RadioGroup>(R.id.radioInterval)
+        rg.check(when (store.bgInterval) { 5 -> R.id.int5; 20 -> R.id.int20; else -> R.id.int10 })
+        rg.setOnCheckedChangeListener { _, id ->
+            store.bgInterval = when (id) { R.id.int5 -> 5; R.id.int20 -> 20; else -> 10 }
         }
 
         val filter = findViewById<EditText>(R.id.inputTitle)
@@ -419,6 +435,29 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.txtHistory).text = if (h.isEmpty()) "—" else h.joinToString("\n")
     }
 
+    // ---------- Deslizar para actualizar ----------
+    private fun currentPage(): View = when (tab) {
+        R.id.tabWeb -> web
+        R.id.tabHistory -> findViewById(R.id.pageHistory)
+        R.id.tabSettings -> findViewById(R.id.pageSettings)
+        else -> findViewById(R.id.pageSignal)
+    }
+
+    private fun setupSwipe() {
+        val sw = findViewById<SwipeRefreshLayout>(R.id.swipe)
+        sw.setColorSchemeColors(ContextCompat.getColor(this, R.color.gold))
+        sw.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.surface))
+        sw.setOnChildScrollUpCallback { _, _ -> currentPage().canScrollVertically(-1) }
+        sw.setOnRefreshListener {
+            when (tab) {
+                R.id.tabWeb -> web.reload()
+                else -> Myfxbook.kick(this)
+            }
+            refresh()
+            sw.postDelayed({ sw.isRefreshing = false; refresh() }, if (tab == R.id.tabWeb) 1500 else 2500)
+        }
+    }
+
     // ---------- Precio, operaciones y promedios ----------
     private val C_INK get() = ContextCompat.getColor(this, R.color.ink)
     private val C_INK2 get() = ContextCompat.getColor(this, R.color.ink2)
@@ -462,6 +501,7 @@ class MainActivity : AppCompatActivity() {
         val trades = store.trades()
         val orders = store.orders()
         findViewById<View>(R.id.cardTrades).visibility = if (mfx) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.txtStale).visibility = if (mfx && store.mfxStale()) View.VISIBLE else View.GONE
         findViewById<View>(R.id.cardOrders).visibility = if (mfx && orders.isNotEmpty()) View.VISIBLE else View.GONE
 
         // Operaciones abiertas: tipo · lotes · entrada · beneficio

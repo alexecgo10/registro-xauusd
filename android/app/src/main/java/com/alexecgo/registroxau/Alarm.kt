@@ -45,6 +45,7 @@ object Alarm {
     }
 
     fun start(ctx: Context, title: String, text: String) {
+        if (SignalStore(ctx).dnd) { Notifier.quiet(ctx, "⏰ $title", text); return }
         val c = ctx.applicationContext
         appCtx = c
         lastTitle = title; lastText = text

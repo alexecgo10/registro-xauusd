@@ -73,6 +73,27 @@ class SignalStore(context: Context) {
         .putString("floatingUpd", updated).remove("mfxError").apply()
     fun clearFloating() = prefs.edit().remove("floating").remove("floatingAt").apply()
 
+    /** No molestar: todo sigue funcionando, pero sin sonidos ni alarmas. */
+    var dnd: Boolean
+        get() = prefs.getBoolean("dnd", false)
+        set(v) = prefs.edit().putBoolean("dnd", v).apply()
+
+    /** Cada cuántos segundos se consulta el precio en segundo plano. */
+    var bgInterval: Int
+        get() = prefs.getInt("bgInterval", 10)
+        set(v) = prefs.edit().putInt("bgInterval", v).apply()
+
+    /** Myfxbook "atascado": su última sincronización no cambia desde hace más de 45 min con el mercado abierto. */
+    fun noteMfxUpdate(updated: String) {
+        if (updated != prefs.getString("mfxUpdVal", null))
+            prefs.edit().putString("mfxUpdVal", updated).putLong("mfxUpdSeen", System.currentTimeMillis()).apply()
+    }
+    fun mfxStale(): Boolean {
+        val q = quote ?: return false
+        if (q.closed || !mfxOn || !prefs.contains("mfxUpdSeen")) return false
+        return System.currentTimeMillis() - prefs.getLong("mfxUpdSeen", 0) > 45 * 60_000L
+    }
+
     // --- Alarmas ---
     var alarmSched: Boolean
         get() = prefs.getBoolean("alarmSched", false)

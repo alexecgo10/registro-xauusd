@@ -6,10 +6,15 @@
     android:background="@color/bg"
     android:orientation="vertical">
 
-    <FrameLayout
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
         <!-- ===== SEÑAL ===== -->
         <ScrollView
@@ -129,7 +134,16 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="16dp">
-                        <TextView style="@style/Eyebrow" android:text="Operaciones abiertas" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                            <TextView style="@style/Eyebrow" android:layout_width="0dp" android:layout_weight="1" android:text="Operaciones abiertas" />
+                            <TextView
+                                android:id="@+id/txtStale"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="⚠️"
+                                android:textSize="15sp"
+                                android:visibility="gone" />
+                        </LinearLayout>
                         <LinearLayout
                             android:id="@+id/boxTrades"
                             android:layout_width="match_parent"
@@ -177,6 +191,11 @@
                             android:id="@+id/switchSched"
                             style="@style/Sw"
                             android:text="🌙 Alarma con horario"
+                            android:textStyle="bold" />
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchDnd"
+                            style="@style/Sw"
+                            android:text="🔕 No molestar"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -337,6 +356,16 @@
                             android:id="@+id/switchSound"
                             style="@style/Sw"
                             android:text="Sonido de aviso" />
+                        <TextView style="@style/Line" android:text="Precio en segundo plano, cada" />
+                        <RadioGroup
+                            android:id="@+id/radioInterval"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <RadioButton android:id="@+id/int5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="16dp" android:text="5 s" android:textColor="@color/ink" />
+                            <RadioButton android:id="@+id/int10" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="16dp" android:text="10 s" android:textColor="@color/ink" />
+                            <RadioButton android:id="@+id/int20" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="20 s" android:textColor="@color/ink" />
+                        </RadioGroup>
                         <Button android:id="@+id/btnSave" style="@style/BtnTonal"
                             android:layout_marginTop="6dp" android:text="Guardar" />
                     </LinearLayout>
@@ -422,6 +451,7 @@
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/nav"

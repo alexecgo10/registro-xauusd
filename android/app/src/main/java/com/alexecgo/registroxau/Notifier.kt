@@ -29,10 +29,16 @@ object Notifier {
     private const val ALERT_ID = 1002
     private const val CH_ONGOING = "signal_ongoing"
     private const val CH_ALERT = "signal_alert"
+    private const val CH_QUIET = "signal_quiet"
 
     fun ensureChannels(ctx: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(CH_QUIET, "Avisos en silencio (No molestar)", NotificationManager.IMPORTANCE_LOW).apply {
+                setSound(null, null); enableVibration(false)
+            }
+        )
         nm.createNotificationChannel(
             NotificationChannel(CH_ONGOING, "Señal abierta", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Notificación fija con la señal abierta de LIFT.SIGNALS"
@@ -125,7 +131,7 @@ object Notifier {
         val f = if (store.mfxOn) store.floating?.takeIf { kotlin.math.abs(it) > 0.005 } else null
         if (f == null) { nm.cancel(FLOAT_ID); return }
         if (!canNotify(ctx)) return
-        val emoji = if (f < 0) "📉" else "📈"
+        val emoji = (if (store.mfxStale()) "⚠️" else "") + if (f < 0) "📉" else "📈"
         val lines = listOfNotNull(
             store.mfxDetail.takeIf { store.mfxAccount == "all" && it.contains("\n") },
             store.floatingUpdated.takeIf { it.isNotBlank() }?.let { "Myfxbook sincronizado: $it" }
@@ -209,10 +215,26 @@ object Notifier {
         } catch (e: Exception) { }
     }
 
+    /** Aviso sin sonido ni vibración (modo No molestar). */
+    fun quiet(ctx: Context, title: String, text: String) {
+        ensureChannels(ctx)
+        if (!canNotify(ctx)) return
+        val n = NotificationCompat.Builder(ctx, CH_QUIET)
+            .setSmallIcon(R.drawable.ic_stat_signal)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setSilent(true)
+            .setContentIntent(openApp(ctx))
+            .build()
+        try { NotificationManagerCompat.from(ctx).notify(ALERT_ID, n) } catch (e: SecurityException) { }
+    }
+
     /** Aviso puntual (abrir, promedio, cierre) con sonido por el canal de alarma. */
     fun alert(ctx: Context, title: String, text: String) {
         ensureChannels(ctx)
         val store = SignalStore(ctx)
+        if (store.dnd) { quiet(ctx, title, text); return }
         if (store.alarmActive()) { Alarm.start(ctx, title, text); return }
         if (canNotify(ctx)) {
             val n = NotificationCompat.Builder(ctx, CH_ALERT)
