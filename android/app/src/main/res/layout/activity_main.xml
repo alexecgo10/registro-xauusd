@@ -124,6 +124,26 @@
                 android:orientation="vertical"
                 android:padding="16dp">
                 <TextView style="@style/Eyebrow" android:text="Ajustes" />
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchAlarm"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="⏰ Modo alarma (para dormir)"
+                    android:textColor="@color/ink"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/txtAlarm"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/ink2"
+                    android:textSize="13sp"
+                    android:text="Cuando está activado, cada señal, promedio o cierre suena como un despertador hasta que lo pares." />
+                <Button android:id="@+id/btnFullScreen" style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Permitir alarma a pantalla completa" />
+                <Button android:id="@+id/btnTestAlarm" style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Probar alarma en 10 s" />
                 <TextView style="@style/Line" android:text="Nombre del canal en Telegram" />
                 <EditText
                     android:id="@+id/inputTitle"

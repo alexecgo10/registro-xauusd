@@ -64,6 +64,25 @@ class MainActivity : AppCompatActivity() {
             sendBroadcast(Intent(this, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE))
         }
 
+        val alarm = findViewById<MaterialSwitch>(R.id.switchAlarm)
+        alarm.isChecked = store.alarmMode
+        alarm.setOnCheckedChangeListener { _, on ->
+            store.alarmMode = on
+            Toast.makeText(this, if (on) "Modo alarma activado" else "Modo alarma desactivado", Toast.LENGTH_SHORT).show()
+            refresh()
+        }
+        findViewById<Button>(R.id.btnFullScreen).setOnClickListener {
+            try {
+                startActivity(Intent("android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT").setData(Uri.parse("package:$packageName")))
+            } catch (e: Exception) { openAppNotificationSettings() }
+        }
+        findViewById<Button>(R.id.btnTestAlarm).setOnClickListener {
+            Toast.makeText(this, "Bloquea el móvil: sonará en 10 segundos", Toast.LENGTH_LONG).show()
+            android.os.Handler(mainLooper).postDelayed({
+                Alarm.start(this, "Prueba de alarma", "Así sonará cuando llegue una señal")
+            }, 10_000)
+        }
+
         val filter = findViewById<EditText>(R.id.inputTitle)
         val sound = findViewById<MaterialSwitch>(R.id.switchSound)
         filter.setText(store.titleFilter)
@@ -146,6 +165,13 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.txtLive).visibility = if (live == null) android.view.View.GONE else android.view.View.VISIBLE
         findViewById<TextView>(R.id.txtLive).text = (if (live == true) "✅" else "❌") + "  Actualizaciones en directo (isla)"
         findViewById<Button>(R.id.btnLive).visibility = if (live == false) android.view.View.VISIBLE else android.view.View.GONE
+
+        val fsOk = Build.VERSION.SDK_INT < 34 ||
+            getSystemService(android.app.NotificationManager::class.java).canUseFullScreenIntent()
+        findViewById<Button>(R.id.btnFullScreen).visibility =
+            if (store.alarmMode && !fsOk) android.view.View.VISIBLE else android.view.View.GONE
+        findViewById<Button>(R.id.btnTestAlarm).visibility =
+            if (store.alarmMode) android.view.View.VISIBLE else android.view.View.GONE
 
         val s = store.state()
         findViewById<TextView>(R.id.txtSignalTitle).text = s?.let { Notifier.title(it) } ?: "Sin señal abierta"

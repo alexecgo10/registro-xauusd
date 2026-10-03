@@ -7,6 +7,7 @@ import android.content.Intent
 /** Botón "Cerrar señal" de la notificación fija, por si se perdió el mensaje de cierre. */
 class ActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ACTION_STOP_ALARM) { Alarm.stop(context); return }
         if (intent.action == ACTION_CLOSE) {
             val store = SignalStore(context)
             if (store.state() != null) {
@@ -20,5 +21,6 @@ class ActionReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION_CLOSE = "com.alexecgo.registroxau.CLOSE_SIGNAL"
+        const val ACTION_STOP_ALARM = "com.alexecgo.registroxau.STOP_ALARM"
     }
 }

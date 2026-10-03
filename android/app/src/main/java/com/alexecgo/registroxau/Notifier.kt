@@ -165,6 +165,7 @@ object Notifier {
     fun alert(ctx: Context, title: String, text: String) {
         ensureChannels(ctx)
         val store = SignalStore(ctx)
+        if (store.alarmMode) { Alarm.start(ctx, title, text); return }
         if (canNotify(ctx)) {
             val n = NotificationCompat.Builder(ctx, CH_ALERT)
                 .setSmallIcon(R.drawable.ic_stat_signal)

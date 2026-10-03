@@ -28,6 +28,11 @@ class SignalStore(context: Context) {
         get() = prefs.getBoolean("soundOn", true)
         set(v) = prefs.edit().putBoolean("soundOn", v).apply()
 
+    /** Modo alarma (para la noche): suena en bucle hasta pararla. */
+    var alarmMode: Boolean
+        get() = prefs.getBoolean("alarmMode", false)
+        set(v) = prefs.edit().putBoolean("alarmMode", v).apply()
+
     fun state(): SignalState? {
         val raw = prefs.getString("state", null) ?: return null
         return try {
