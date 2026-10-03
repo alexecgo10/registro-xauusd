@@ -23,37 +23,77 @@
                 android:orientation="vertical"
                 android:paddingBottom="24dp">
 
+                <!-- Precio del oro -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@color/band"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
                     android:paddingHorizontal="20dp"
                     android:paddingTop="40dp"
                     android:paddingBottom="18dp">
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:text="XAU/USD · Señales"
+                        android:layout_weight="1"
+                        android:text="XAU/USD"
                         android:textColor="@color/band_ink"
                         android:textSize="22sp"
                         android:textStyle="bold" />
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:orientation="vertical">
+                        <TextView
+                            android:id="@+id/txtPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="—"
+                            android:textColor="@color/band_ink"
+                            android:textSize="24sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/txtPriceInfo"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:textColor="@color/band_dim"
+                            android:textSize="11sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
-                <com.google.android.material.card.MaterialCardView style="@style/Card"
+                <!-- Señal actual (se despliega con sus promedios) -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSignal"
+                    style="@style/Card"
                     android:layout_width="match_parent" android:layout_height="wrap_content">
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="16dp">
-                        <TextView style="@style/Eyebrow" android:text="Señal actual" />
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <TextView style="@style/Eyebrow" android:layout_width="0dp" android:layout_weight="1" android:text="Señal actual" />
+                            <TextView
+                                android:id="@+id/txtSignalChevron"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/ink2"
+                                android:textSize="13sp" />
+                        </LinearLayout>
                         <TextView
                             android:id="@+id/txtSignalTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:textColor="@color/ink"
-                            android:textSize="24sp"
+                            android:textSize="22sp"
                             android:textStyle="bold" />
                         <TextView
                             android:id="@+id/txtSignalBody"
@@ -62,6 +102,13 @@
                             android:layout_marginTop="4dp"
                             android:textColor="@color/ink2"
                             android:textSize="14sp" />
+                        <LinearLayout
+                            android:id="@+id/boxSignalAvgs"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="vertical"
+                            android:visibility="gone" />
                         <Button
                             android:id="@+id/btnClose"
                             style="@style/BtnOutlined"
@@ -72,8 +119,9 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
+                <!-- Operaciones abiertas -->
                 <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardFloat"
+                    android:id="@+id/cardTrades"
                     style="@style/Card"
                     android:layout_width="match_parent" android:layout_height="wrap_content">
                     <LinearLayout
@@ -81,36 +129,56 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="16dp">
-                        <TextView style="@style/Eyebrow" android:text="Flotante" />
-                        <TextView
-                            android:id="@+id/txtFloat"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:textColor="@color/ink"
-                            android:textSize="24sp"
-                            android:textStyle="bold" />
-                        <TextView
-                            android:id="@+id/txtFloatInfo"
+                        <TextView style="@style/Eyebrow" android:text="Operaciones abiertas" />
+                        <LinearLayout
+                            android:id="@+id/boxTrades"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:textColor="@color/ink2"
-                            android:textSize="13sp" />
+                            android:layout_marginTop="8dp"
+                            android:orientation="vertical" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView style="@style/Card"
+                <!-- Promedios (órdenes límite) -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardOrders"
+                    style="@style/Card"
                     android:layout_width="match_parent" android:layout_height="wrap_content">
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchAlarm"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:padding="16dp"
-                        android:text="⏰ Modo alarma"
-                        android:textColor="@color/ink"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:orientation="vertical"
+                        android:padding="16dp">
+                        <TextView style="@style/Eyebrow" android:text="Promedios" />
+                        <LinearLayout
+                            android:id="@+id/boxOrders"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Alarmas -->
+                <com.google.android.material.card.MaterialCardView style="@style/Card"
+                    android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="8dp">
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchAlarm"
+                            style="@style/Sw"
+                            android:text="⏰ Modo alarma"
+                            android:textStyle="bold" />
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchSched"
+                            style="@style/Sw"
+                            android:text="🌙 Alarma con horario"
+                            android:textStyle="bold" />
+                    </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
         </ScrollView>
@@ -271,6 +339,53 @@
                             android:text="Sonido de aviso" />
                         <Button android:id="@+id/btnSave" style="@style/BtnTonal"
                             android:layout_marginTop="6dp" android:text="Guardar" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Alarmas -->
+                <com.google.android.material.card.MaterialCardView style="@style/Card"
+                    android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+                        <TextView style="@style/Eyebrow" android:text="Alarmas" />
+                        <TextView style="@style/Line" android:text="Horario de la alarma" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                            <EditText
+                                android:id="@+id/inputSchedFrom"
+                                android:layout_width="0dp" android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:hint="00:00"
+                                android:inputType="time"
+                                android:textColor="@color/ink"
+                                android:textColorHint="@color/ink2" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:paddingHorizontal="12dp" android:text="a" android:textColor="@color/ink2" />
+                            <EditText
+                                android:id="@+id/inputSchedTo"
+                                android:layout_width="0dp" android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:hint="08:00"
+                                android:inputType="time"
+                                android:textColor="@color/ink"
+                                android:textColorHint="@color/ink2" />
+                        </LinearLayout>
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchFloatAlarm"
+                            style="@style/Sw"
+                            android:layout_marginTop="10dp"
+                            android:text="Alarma si el flotante baja de" />
+                        <EditText
+                            android:id="@+id/inputFloatLimit"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="500 $"
+                            android:inputType="numberDecimal"
+                            android:textColor="@color/ink"
+                            android:textColorHint="@color/ink2" />
+                        <Button android:id="@+id/btnSaveAlarms" style="@style/BtnTonal" android:text="Guardar" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 

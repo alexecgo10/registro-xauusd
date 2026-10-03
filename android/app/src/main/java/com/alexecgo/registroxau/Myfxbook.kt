@@ -3,6 +3,7 @@ package com.alexecgo.registroxau
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -67,29 +68,53 @@ object Myfxbook {
         }
     }
 
-    /** Suma el "beneficio neto" de las operaciones abiertas (lo mismo que el Total de la web). */
-    private fun openProfit(ctx: Context, acc: MfxAccount, k: Double): Double? = try {
-        val st = SignalStore(ctx)
-        val r = get("${API}get-open-trades.json?session=${enc(st.mfxSession)}&id=${enc(acc.id)}")
+    private fun lotsOf(o: JSONObject): Double =
+        o.optJSONObject("sizing")?.optString("value")?.replace(",", ".")?.toDoubleOrNull() ?: o.optDouble("sizing", 0.0)
+
+    /** Operaciones abiertas de una cuenta (null si Myfxbook falla). */
+    private fun openTrades(ctx: Context, acc: MfxAccount): List<Trade>? = try {
+        val r = get("${API}get-open-trades.json?session=${enc(SignalStore(ctx).mfxSession)}&id=${enc(acc.id)}")
         if (r.optBoolean("error", false)) null else {
-            val arr = r.optJSONArray("openTrades")
-            if (arr == null) null else (0 until arr.length()).sumOf { arr.getJSONObject(it).optDouble("profit", 0.0) } * k
+            val arr = r.optJSONArray("openTrades") ?: JSONArray()
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                Trade(acc.name, o.optString("symbol"), o.optString("action").startsWith("Buy", true),
+                    lotsOf(o), o.optDouble("openPrice"), o.optDouble("profit", 0.0) * acc.k, acc.k)
+            }
         }
     } catch (e: Exception) { null }
 
-    /** Una lectura: guarda el flotante de la cuenta elegida (o la suma) y actualiza la isla. */
+    /** Órdenes pendientes (límite/stop) de una cuenta. */
+    private fun openOrders(ctx: Context, acc: MfxAccount): List<Order>? = try {
+        val r = get("${API}get-open-orders.json?session=${enc(SignalStore(ctx).mfxSession)}&id=${enc(acc.id)}")
+        if (r.optBoolean("error", false)) null else {
+            val arr = r.optJSONArray("openOrders") ?: JSONArray()
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val type = o.optString("action")
+                val price = o.optDouble("openPrice")
+                Order("${acc.id}|$type|$price|${o.optString("openTime")}", acc.name, o.optString("symbol"), type, lotsOf(o), price)
+            }
+        }
+    } catch (e: Exception) { null }
+
+    /** Una lectura de Myfxbook: cuentas, operaciones abiertas, órdenes pendientes y flotante. */
     fun refresh(ctx: Context): String {
         val st = SignalStore(ctx)
         return try {
             val list = accounts(ctx)
             st.mfxAccounts = list.joinToString("|") { "${it.id}~${it.name} (${it.number})" }
             val sel = if (st.mfxAccount == "all") list else list.filter { it.id == st.mfxAccount }.ifEmpty { list.take(1) }
-            // Flotante por cuenta: operaciones abiertas (como la web); si falla, equity − balance.
-            val per = sel.map { a -> a to (openProfit(ctx, a, a.k) ?: a.floating) }
-            val f = per.sumOf { it.second }
+            val trades = mutableListOf<Trade>(); val orders = mutableListOf<Order>()
+            val per = sel.map { a ->
+                val t = openTrades(ctx, a)
+                openOrders(ctx, a)?.let { orders += it }
+                if (t != null) trades += t
+                a to (t?.sumOf { it.profit } ?: a.floating)
+            }
+            st.saveTrades(trades); st.saveOrders(orders)
             st.mfxDetail = per.joinToString("\n") { (a, v) -> "• ${a.name}: ${Notifier.money(v)}" }
-            st.setFloating(f, sel.maxOfOrNull { it.updated } ?: "")
-            Notifier.showOngoing(ctx)
+            st.setFloating(per.sumOf { it.second }, sel.maxOfOrNull { it.updated } ?: "")
             ""
         } catch (e: Exception) {
             st.mfxError = e.message ?: "Error"
@@ -97,11 +122,11 @@ object Myfxbook {
         }
     }
 
-    /** Bucle en segundo plano mientras el lector de notificaciones está activo. */
+    /** Vigilante en segundo plano mientras el lector de notificaciones está activo. */
     fun start(ctx: Context) {
         appCtx = ctx.applicationContext
         if (thread != null) return
-        thread = HandlerThread("myfxbook").also { it.start() }
+        thread = HandlerThread("vigilante").also { it.start() }
         handler = Handler(thread!!.looper)
         handler!!.post(loop)
     }
@@ -110,9 +135,15 @@ object Myfxbook {
         thread?.quitSafely(); thread = null; handler = null
     }
 
-    /** Fuerza una lectura ahora (p. ej. al conectar desde la app). */
+    /** La app está en pantalla: precio cada pocos segundos. */
+    @Volatile var uiVisible = false
+    @Volatile private var forceMfx = false
+    private var lastMfx = 0L
+
+    /** Fuerza una lectura ahora (al abrir la app, al conectar…). */
     fun kick(ctx: Context) {
         appCtx = ctx.applicationContext
+        forceMfx = true
         if (handler == null || thread?.isAlive != true) { thread = null; start(ctx) }
         else { handler!!.removeCallbacks(loop); handler!!.post(loop) }
     }
@@ -121,12 +152,31 @@ object Myfxbook {
         override fun run() {
             val c = appCtx ?: return
             val st = SignalStore(c)
-            var next = EVERY_IDLE_MS
-            if (st.mfxOn && st.mfxEmail.isNotEmpty()) {
-                refresh(c)
-                if (kotlin.math.abs(st.floating ?: 0.0) > 0.005 || st.state() != null) next = EVERY_OPEN_MS
-            } else if (st.floating != null) { st.clearFloating(); Notifier.showOngoing(c) }
+            val mfx = st.mfxOn && st.mfxEmail.isNotEmpty()
+            val now = System.currentTimeMillis()
+            try {
+                if (mfx) {
+                    val busy = st.trades().isNotEmpty() || st.orders().isNotEmpty() || st.state() != null
+                    if (forceMfx || now - lastMfx >= (if (busy) EVERY_OPEN_MS else EVERY_IDLE_MS)) {
+                        forceMfx = false; lastMfx = now; refresh(c)
+                    }
+                } else if (st.floating != null || st.trades().isNotEmpty()) {
+                    st.clearFloating(); st.saveTrades(emptyList()); st.saveOrders(emptyList())
+                }
+                val watching = mfx && (st.trades().isNotEmpty() || st.orders().isNotEmpty())
+                if (uiVisible || watching) {
+                    Market.fetchQuote()?.let { st.quote = it }
+                    Market.evaluate(c)
+                }
+                Notifier.showOngoing(c)
+            } catch (e: Exception) { }
             c.sendBroadcast(android.content.Intent(SignalListenerService.ACTION_CHANGED).setPackage(c.packageName))
+            val q = st.quote
+            val next = when {
+                uiVisible -> 3_000L
+                mfx && (st.trades().isNotEmpty() || st.orders().isNotEmpty()) -> if (q?.closed == true) 120_000L else 20_000L
+                else -> 60_000L
+            }
             handler?.postDelayed(this, next)
         }
     }

@@ -26,6 +26,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -102,10 +103,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ---------- Señal ----------
+    private var signalOpen = false
+
     private fun setupSignal() {
         findViewById<Button>(R.id.btnClose).setOnClickListener {
             sendBroadcast(Intent(this, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE))
         }
+        findViewById<View>(R.id.cardSignal).setOnClickListener {
+            if (store.state()?.averages?.isNotEmpty() == true) { signalOpen = !signalOpen; refresh() }
+        }
+        val sched = findViewById<MaterialSwitch>(R.id.switchSched)
+        sched.isChecked = store.alarmSched
+        sched.setOnCheckedChangeListener { _, on -> store.alarmSched = on; refresh() }
         val alarm = findViewById<MaterialSwitch>(R.id.switchAlarm)
         alarm.isChecked = store.alarmMode
         alarm.setOnCheckedChangeListener { _, on ->
@@ -152,6 +161,29 @@ class MainActivity : AppCompatActivity() {
             store.soundOn = sound.isChecked
             filter.setText(store.titleFilter)
             toast("Guardado")
+        }
+
+        val from = findViewById<EditText>(R.id.inputSchedFrom)
+        val to = findViewById<EditText>(R.id.inputSchedTo)
+        val fl = findViewById<MaterialSwitch>(R.id.switchFloatAlarm)
+        val lim = findViewById<EditText>(R.id.inputFloatLimit)
+        from.setText(store.schedFrom); to.setText(store.schedTo)
+        fl.isChecked = store.floatAlarmOn
+        if (store.floatAlarmLimit > 0) lim.setText(store.floatAlarmLimit.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() })
+        findViewById<Button>(R.id.btnSaveAlarms).setOnClickListener {
+            val re = Regex("^([01]?\\d|2[0-3])[:.]([0-5]\\d)$")
+            fun norm(t: String) = re.find(t.trim())?.let { "%02d:%s".format(it.groupValues[1].toInt(), it.groupValues[2]) }
+            val f = norm(from.text.toString()); val t = norm(to.text.toString())
+            if (f == null || t == null) { toast("Escribe las horas así: 00:00"); return@setOnClickListener }
+            store.schedFrom = f; store.schedTo = t
+            from.setText(f); to.setText(t)
+            val l = lim.text.toString().replace(",", ".").replace("-", "").replace("$", "").trim().toDoubleOrNull() ?: 0.0
+            store.floatAlarmLimit = l
+            store.floatAlarmOn = fl.isChecked && l > 0
+            store.floatAlarmFired = false
+            fl.isChecked = store.floatAlarmOn
+            toast("Guardado")
+            refresh()
         }
 
         findViewById<Button>(R.id.btnTestOpen).setOnClickListener { test("XAUUSD BUY 4160\n\norientativo:\nTP✅") }
@@ -231,18 +263,7 @@ class MainActivity : AppCompatActivity() {
         sp.setSelection(mfxIds.indexOf(store.mfxAccount).coerceAtLeast(0))
         sp.post { fillingSpinner = false }
 
-        // Tarjeta de flotante en la pantalla principal
-        val show = store.mfxOn && f != null && kotlin.math.abs(f) > 0.005
-        findViewById<View>(R.id.cardFloat).visibility = if (show) View.VISIBLE else View.GONE
-        if (show) {
-            val t = findViewById<TextView>(R.id.txtFloat)
-            t.text = Notifier.money(f!!)
-            t.setTextColor(if (f < 0) 0xFFF0453A.toInt() else 0xFF22A06B.toInt())
-            findViewById<TextView>(R.id.txtFloatInfo).text = listOfNotNull(
-                store.mfxDetail.takeIf { store.mfxAccount == "all" && it.contains("\n") },
-                store.floatingUpdated.takeIf { it.isNotBlank() }?.let { "Myfxbook $it" }
-            ).joinToString("\n")
-        }
+    }
     }
 
     // ---------- Registro (web dentro de la app) ----------
@@ -330,7 +351,8 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onStart() {
         super.onStart()
-        if (store.mfxOn && store.mfxEmail.isNotEmpty()) Myfxbook.kick(this)
+        Myfxbook.uiVisible = true
+        Myfxbook.kick(this)
         ContextCompat.registerReceiver(
             this, changed, IntentFilter(SignalListenerService.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED
         )
@@ -339,6 +361,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        Myfxbook.uiVisible = false
         try { unregisterReceiver(changed) } catch (e: Exception) { }
     }
 
@@ -373,15 +396,131 @@ class MainActivity : AppCompatActivity() {
 
         refreshMyfxbook()
 
+        refreshMarket()
+        findViewById<MaterialSwitch>(R.id.switchSched).text =
+            "🌙 Alarma con horario  ·  ${store.schedFrom}–${store.schedTo}"
+
         val s = store.state()
+        val hasAvg = s?.averages?.isNotEmpty() == true
+        if (!hasAvg) signalOpen = false
+        findViewById<TextView>(R.id.txtSignalChevron).text =
+            if (hasAvg) "${s!!.averages.size} promedio${if (s.averages.size > 1) "s" else ""} " + (if (signalOpen) "▴" else "▾") else ""
+        val avgBox = findViewById<LinearLayout>(R.id.boxSignalAvgs)
+        avgBox.removeAllViews()
+        avgBox.visibility = if (signalOpen) View.VISIBLE else View.GONE
+        if (signalOpen && s != null) s.averages.forEachIndexed { i, p ->
+            avgBox.addView(tableRow(listOf("Promedio ${i + 1}" to C_INK2, p to C_INK), floatArrayOf(1f, 1f)))
+        }
         findViewById<TextView>(R.id.txtSignalTitle).text = s?.let { Notifier.title(it) } ?: "Sin señal abierta"
         val body = findViewById<TextView>(R.id.txtSignalBody)
-        body.text = s?.let { Notifier.body(it) } ?: ""
+        body.text = s?.let { "Abierta a las " + java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(it.openedAt)) } ?: ""
         body.visibility = if (s != null) View.VISIBLE else View.GONE
         findViewById<Button>(R.id.btnClose).visibility = if (s != null) View.VISIBLE else View.GONE
 
         val h = store.history()
         findViewById<TextView>(R.id.txtHistory).text = if (h.isEmpty()) "—" else h.joinToString("\n")
+    }
+
+    // ---------- Precio, operaciones y promedios ----------
+    private val C_INK get() = ContextCompat.getColor(this, R.color.ink)
+    private val C_INK2 get() = ContextCompat.getColor(this, R.color.ink2)
+    private val C_BUY = 0xFF2F7CF6.toInt()
+    private val C_SELL = 0xFFF0453A.toInt()
+    private val C_POS = 0xFF22A06B.toInt()
+
+    private fun cell(text: String, color: Int, weight: Float, end: Boolean = false, bold: Boolean = false) =
+        TextView(this).apply {
+            this.text = text; setTextColor(color); textSize = 14f
+            typeface = if (bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            if (end) gravity = android.view.Gravity.END
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, weight)
+        }
+
+    private fun tableRow(cells: List<Pair<String, Int>>, weights: FloatArray, bold: Boolean = false): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 10, 0, 10)
+            cells.forEachIndexed { i, (t, c) -> addView(cell(t, c, weights[i], end = i == cells.lastIndex && i > 0, bold = bold)) }
+        }
+
+    private fun refreshMarket() {
+        val q = store.quote
+        val price = findViewById<TextView>(R.id.txtPrice)
+        val info = findViewById<TextView>(R.id.txtPriceInfo)
+        if (q == null) { price.text = "—"; info.text = "" } else {
+            price.text = Market.fmtPrice(q.bid)
+            val prev = store.prevBid
+            price.setTextColor(when {
+                prev == null || q.closed -> ContextCompat.getColor(this, R.color.band_ink)
+                q.bid > prev -> C_POS
+                q.bid < prev -> C_SELL
+                else -> ContextCompat.getColor(this, R.color.band_ink)
+            })
+            val t = java.text.SimpleDateFormat(if (q.closed) "EEE HH:mm" else "HH:mm:ss", java.util.Locale("es", "ES")).format(java.util.Date(q.ts))
+            info.text = if (q.closed) "Mercado cerrado · $t" else "Venta ${Market.fmtPrice(q.bid)} · Compra ${Market.fmtPrice(q.ask)}"
+        }
+
+        val mfx = store.mfxOn && store.mfxEmail.isNotEmpty()
+        val trades = store.trades()
+        val orders = store.orders()
+        findViewById<View>(R.id.cardTrades).visibility = if (mfx) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.cardOrders).visibility = if (mfx && orders.isNotEmpty()) View.VISIBLE else View.GONE
+
+        // Operaciones abiertas: tipo · lotes · entrada · beneficio
+        val tb = findViewById<LinearLayout>(R.id.boxTrades)
+        tb.removeAllViews()
+        val tw = floatArrayOf(0.9f, 0.8f, 1.3f, 1.3f)
+        if (trades.isEmpty()) tb.addView(tableRow(listOf("Sin operaciones abiertas" to C_INK2), floatArrayOf(1f)))
+        else {
+            tb.addView(tableRow(listOf("Tipo" to C_INK2, "Lotes" to C_INK2, "Entrada" to C_INK2, "Beneficio" to C_INK2), tw))
+            var total = 0.0
+            trades.sortedBy { it.open }.forEach { t ->
+                val p = t.live(q); total += p
+                tb.addView(tableRow(listOf(
+                    (if (t.buy) "BUY" else "SELL") to (if (t.buy) C_BUY else C_SELL),
+                    Market.fmtLots(t.lots) to C_INK,
+                    Market.fmtPrice(t.open) to C_INK,
+                    Notifier.money(p) to (if (p < 0) C_SELL else C_POS)
+                ), tw))
+            }
+            tb.addView(tableRow(listOf("Total" to C_INK, "" to C_INK, "" to C_INK,
+                Notifier.money(total) to (if (total < 0) C_SELL else C_POS)), tw, bold = true))
+        }
+
+        // Promedios (órdenes pendientes): tipo · lotes · precio · distancia · 🔔 · ⏰
+        val ob = findViewById<LinearLayout>(R.id.boxOrders)
+        ob.removeAllViews()
+        if (orders.isNotEmpty()) {
+            val ow = floatArrayOf(1.4f, 0.8f, 1.3f, 1f)
+            val head = tableRow(listOf("Tipo" to C_INK2, "Lotes" to C_INK2, "Precio" to C_INK2, "Falta" to C_INK2), ow)
+            head.addView(cell("", C_INK2, 0.6f)); head.addView(cell("", C_INK2, 0.6f))
+            ob.addView(head)
+            val off = store.ordOff; val alarm = store.ordAlarm; val fired = store.ordFired
+            orders.sortedBy { it.price }.forEach { o ->
+                val row = tableRow(listOf(
+                    o.type to (if (o.buy) C_BUY else C_SELL),
+                    Market.fmtLots(o.lots) to C_INK,
+                    Market.fmtPrice(o.price) to C_INK,
+                    (if (o.key in fired) "Entró" else q?.let { Market.fmtPrice(o.distance(it)) } ?: "—") to C_INK2
+                ), ow)
+                row.gravity = android.view.Gravity.CENTER_VERTICAL
+                row.addView(toggle(if (o.key in off) "🔕" else "🔔", o.key !in off) {
+                    store.ordOff = if (o.key in store.ordOff) store.ordOff - o.key else store.ordOff + o.key; refresh()
+                })
+                row.addView(toggle("⏰", o.key in alarm && o.key !in off) {
+                    store.ordAlarm = if (o.key in store.ordAlarm) store.ordAlarm - o.key else store.ordAlarm + o.key; refresh()
+                })
+                ob.addView(row)
+            }
+        }
+    }
+
+    private fun toggle(icon: String, on: Boolean, click: () -> Unit) = TextView(this).apply {
+        text = icon; textSize = 20f; gravity = android.view.Gravity.CENTER
+        alpha = if (on) 1f else 0.3f
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.6f)
+        setPadding(0, 4, 0, 4)
+        setOnClickListener { click() }
     }
 
     /** null si el sistema no tiene esta función (Android 15 o anterior). */

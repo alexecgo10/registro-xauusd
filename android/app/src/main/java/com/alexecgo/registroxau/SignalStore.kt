@@ -73,6 +73,74 @@ class SignalStore(context: Context) {
         .putString("floatingUpd", updated).remove("mfxError").apply()
     fun clearFloating() = prefs.edit().remove("floating").remove("floatingAt").apply()
 
+    // --- Alarmas ---
+    var alarmSched: Boolean
+        get() = prefs.getBoolean("alarmSched", false)
+        set(v) = prefs.edit().putBoolean("alarmSched", v).apply()
+    var schedFrom: String
+        get() = prefs.getString("schedFrom", "00:00") ?: "00:00"
+        set(v) = prefs.edit().putString("schedFrom", v).apply()
+    var schedTo: String
+        get() = prefs.getString("schedTo", "08:00") ?: "08:00"
+        set(v) = prefs.edit().putString("schedTo", v).apply()
+
+    /** Modo alarma manual, o el horario si estamos dentro de él (admite cruzar la medianoche). */
+    fun alarmActive(): Boolean {
+        if (alarmMode) return true
+        if (!alarmSched) return false
+        fun mins(t: String) = t.split(":").let { (it[0].toIntOrNull() ?: 0) * 60 + (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+        val c = java.util.Calendar.getInstance()
+        val now = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
+        val a = mins(schedFrom); val b = mins(schedTo)
+        return if (a <= b) now in a until b else now >= a || now < b
+    }
+
+    var floatAlarmOn: Boolean
+        get() = prefs.getBoolean("floatAlarmOn", false)
+        set(v) = prefs.edit().putBoolean("floatAlarmOn", v).apply()
+    var floatAlarmLimit: Double
+        get() = prefs.getFloat("floatAlarmLimit", 0f).toDouble()
+        set(v) = prefs.edit().putFloat("floatAlarmLimit", v.toFloat()).apply()
+    var floatAlarmFired: Boolean
+        get() = prefs.getBoolean("floatAlarmFired", false)
+        set(v) = prefs.edit().putBoolean("floatAlarmFired", v).apply()
+
+    // --- Precio del oro y posiciones ---
+    var quote: Quote?
+        get() = if (!prefs.contains("pxBid")) null else
+            Quote(prefs.getFloat("pxBid", 0f).toDouble(), prefs.getFloat("pxAsk", 0f).toDouble(), prefs.getLong("pxTs", 0))
+        set(q) {
+            val e = prefs.edit()
+            if (q == null) e.remove("pxBid").remove("pxAsk").remove("pxTs")
+            else {
+                if (prefs.contains("pxBid") && prefs.getFloat("pxBid", 0f) != q.bid.toFloat()) e.putFloat("pxPrev", prefs.getFloat("pxBid", 0f))
+                e.putFloat("pxBid", q.bid.toFloat()).putFloat("pxAsk", q.ask.toFloat()).putLong("pxTs", q.ts)
+            }
+            e.apply()
+        }
+    val prevBid: Double? get() = if (prefs.contains("pxPrev")) prefs.getFloat("pxPrev", 0f).toDouble() else null
+
+    fun trades(): List<Trade> = try {
+        val a = JSONArray(prefs.getString("trades", "[]")); (0 until a.length()).map { Trade.of(a.getJSONObject(it)) }
+    } catch (e: Exception) { emptyList() }
+    fun saveTrades(l: List<Trade>) = prefs.edit().putString("trades", JSONArray(l.map { it.toJson() }).toString()).apply()
+
+    fun orders(): List<Order> = try {
+        val a = JSONArray(prefs.getString("orders", "[]")); (0 until a.length()).map { Order.of(a.getJSONObject(it)) }
+    } catch (e: Exception) { emptyList() }
+    fun saveOrders(l: List<Order>) = prefs.edit().putString("orders", JSONArray(l.map { it.toJson() }).toString()).apply()
+
+    /** Órdenes con el aviso desactivado / con alarma / ya avisadas. */
+    var ordOff: Set<String>
+        get() = prefs.getStringSet("ordOff", emptySet())!!.toSet()
+        set(v) = prefs.edit().putStringSet("ordOff", HashSet(v)).apply()
+    var ordAlarm: Set<String>
+        get() = prefs.getStringSet("ordAlarm", emptySet())!!.toSet()
+        set(v) = prefs.edit().putStringSet("ordAlarm", HashSet(v)).apply()
+    var ordFired: Set<String>
+        get() = prefs.getStringSet("ordFired", emptySet())!!.toSet()
+        set(v) = prefs.edit().putStringSet("ordFired", HashSet(v)).apply()
+
     fun state(): SignalState? {
         val raw = prefs.getString("state", null) ?: return null
         return try {
