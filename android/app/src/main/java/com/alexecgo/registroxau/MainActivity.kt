@@ -518,6 +518,13 @@ class MainActivity : AppCompatActivity() {
                 e.dot to C_INK,
                 (e.name + (e.forecast.takeIf { it.isNotBlank() }?.let { "  · prev. $it" } ?: "")) to (if (live) C_INK else C_INK)
             ), w, bold = live))
+            News.hint(e.title)?.let { h ->
+                val r = tableRow(listOf("" to C_INK2, "" to C_INK2, h to C_INK2), w)
+                r.setPadding(0, 0, 0, 10)
+                (r.getChildAt(2) as TextView).textSize = 12f
+                (r.getChildAt(2) as TextView).gravity = android.view.Gravity.START
+                box.addView(r)
+            }
         }
     }
 

@@ -97,7 +97,9 @@ object News {
             val nowKey = "now|${group.first().key}"
             if (before > 0 && preKey !in done && now >= t - before && now < t) {
                 done += preKey
-                Notifier.alert(ctx, "$dot En ${((t - now + 59_999) / 60_000)} min: $names", "$hora · $detail".trimEnd(' ', '·'), allowAlarm = false)
+                val tip = group.firstNotNullOfOrNull { hint(it.title) }
+                Notifier.alert(ctx, "$dot En ${((t - now + 59_999) / 60_000)} min: $names",
+                    listOfNotNull("$hora · $detail".trimEnd(' ', '·'), tip).joinToString("\n"), allowAlarm = false)
             }
             if (st.newsAtRelease && nowKey !in done && now >= t && now < t + 5 * 60_000L) {
                 done += nowKey; done += preKey
@@ -151,6 +153,41 @@ object News {
         "Durable Goods Orders" to "Pedidos de bienes duraderos",
         "Treasury Currency Report" to "Informe del Tesoro",
     )
+
+    // Reacción HABITUAL del oro si el dato sale por encima de la previsión.
+    // "down" = dólar fuerte / Fed más dura → oro baja. "up" = al revés. "tone" = depende del tono.
+    private val REACTION = listOf(
+        "ADP Non-Farm" to "down",
+        "Non-Farm Employment Change" to "down",
+        "Unemployment Rate" to "up",
+        "Unemployment Claims" to "up",
+        "Average Hourly Earnings" to "down",
+        "JOLTS" to "down",
+        "CPI" to "down",
+        "PCE" to "down",
+        "PPI" to "down",
+        "Retail Sales" to "down",
+        "GDP" to "down",
+        "ISM" to "down",
+        "Federal Funds Rate" to "down",
+        "FOMC Statement" to "tone",
+        "FOMC Press Conference" to "tone",
+        "FOMC Meeting Minutes" to "tone",
+        "FOMC Economic Projections" to "tone",
+        "Fed Chair" to "tone",
+        "UoM Consumer Sentiment" to "down",
+        "UoM Inflation Expectations" to "down",
+        "CB Consumer Confidence" to "down",
+        "Durable Goods" to "down",
+    )
+
+    /** Pista corta: qué suele hacer el oro según salga el dato. */
+    fun hint(title: String): String? = when (REACTION.firstOrNull { title.contains(it.first, true) }?.second) {
+        "down" -> "Mayor que prev. → oro ⬇️ · Menor → oro ⬆️"
+        "up" -> "Mayor que prev. → oro ⬆️ · Menor → oro ⬇️"
+        "tone" -> "Tono duro → oro ⬇️ · Tono suave → oro ⬆️"
+        else -> null
+    }
 
     /** Nombre en español (si lo conocemos), manteniendo m/m, y/y… */
     fun translate(title: String): String {

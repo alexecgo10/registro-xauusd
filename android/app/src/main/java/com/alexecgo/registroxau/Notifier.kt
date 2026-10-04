@@ -241,6 +241,7 @@ object Notifier {
                 .setSmallIcon(R.drawable.ic_stat_signal)
                 .setContentTitle(title)
                 .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(openApp(ctx))
