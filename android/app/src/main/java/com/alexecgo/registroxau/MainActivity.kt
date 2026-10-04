@@ -654,8 +654,12 @@ class MainActivity : AppCompatActivity() {
             bBuy.setBackgroundColor(if (buy) C_BUY else 0x22000000); bBuy.setTextColor(if (buy) 0xFFFFFFFF.toInt() else C_INK2)
             bSell.setBackgroundColor(if (!buy) C_SELL else 0x22000000); bSell.setTextColor(if (!buy) 0xFFFFFFFF.toInt() else C_INK2)
         }
-        fun parsePrice() = price.text.toString().replace(" ", "").replace(".", "").replace(",", ".").toDoubleOrNull()
-            ?: price.text.toString().toDoubleOrNull()
+        fun parsePrice(): Double? {
+            val raw = price.text.toString().replace(" ", "")
+            // "4187.50" o "4187,50" o "4.187,50"
+            val norm = if (raw.contains(",")) raw.replace(".", "").replace(",", ".") else raw
+            return norm.toDoubleOrNull()
+        }
         fun setPrice(v: Double) { price.setText(String.format(java.util.Locale.US, "%.2f", v)); price.setSelection(price.text.length) }
         bBuy.setOnClickListener { val follow = t == null && parsePrice() == current(); buy = true; paint(); if (follow) current()?.let { setPrice(it) } }
         bSell.setOnClickListener { val follow = t == null && parsePrice() == current(); buy = false; paint(); if (follow) current()?.let { setPrice(it) } }
