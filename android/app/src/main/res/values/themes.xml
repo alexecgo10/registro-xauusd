@@ -6,6 +6,27 @@
         <item name="android:statusBarColor">@color/band</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:colorBackground">@color/bg</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.RegistroXAU.Dialog</item>
+    </style>
+
+    <!-- Ventanas emergentes: textos y botones con buen contraste también en modo oscuro. -->
+    <style name="ThemeOverlay.RegistroXAU.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/ink</item>
+        <item name="colorOnSurfaceVariant">@color/ink2</item>
+        <item name="android:textColorPrimary">@color/ink</item>
+        <item name="android:textColorSecondary">@color/ink2</item>
+        <item name="android:textColorHint">@color/ink2</item>
+        <item name="colorPrimary">@color/gold</item>
+        <item name="colorAccent">@color/gold</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/DialogTitle</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/DialogBody</item>
+    </style>
+    <style name="DialogTitle" parent="MaterialAlertDialog.Material3.Title.Text">
+        <item name="android:textColor">@color/ink</item>
+    </style>
+    <style name="DialogBody" parent="MaterialAlertDialog.Material3.Body.Text">
+        <item name="android:textColor">@color/ink2</item>
     </style>
 
     <style name="Card" parent="Widget.Material3.CardView.Elevated">
