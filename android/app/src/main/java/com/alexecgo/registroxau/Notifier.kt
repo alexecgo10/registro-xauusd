@@ -128,7 +128,7 @@ object Notifier {
     private fun showFloating(ctx: Context) {
         val nm = NotificationManagerCompat.from(ctx)
         val store = SignalStore(ctx)
-        val f = if (store.mfxOn) store.floating?.takeIf { kotlin.math.abs(it) > 0.005 } else null
+        val f = if (store.mfxOn || store.manualTrades().isNotEmpty()) store.floating?.takeIf { kotlin.math.abs(it) > 0.005 } else null
         if (f == null) { nm.cancel(FLOAT_ID); return }
         if (!canNotify(ctx)) return
         val emoji = (if (store.mfxStale()) "⚠️" else "") + if (f < 0) "📉" else "📈"

@@ -79,7 +79,8 @@ object Myfxbook {
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
                 Trade(acc.name, o.optString("symbol"), o.optString("action").startsWith("Buy", true),
-                    lotsOf(o), o.optDouble("openPrice"), o.optDouble("profit", 0.0) * acc.k, acc.k)
+                    lotsOf(o), o.optDouble("openPrice"), o.optDouble("profit", 0.0) * acc.k, acc.k,
+                    key = "${acc.id}|${o.optString("action")}|${o.optDouble("openPrice")}|${o.optString("openTime")}")
             }
         }
     } catch (e: Exception) { null }
@@ -106,13 +107,15 @@ object Myfxbook {
             st.mfxAccounts = list.joinToString("|") { "${it.id}~${it.name} (${it.number})" }
             val sel = if (st.mfxAccount == "all") list else list.filter { it.id == st.mfxAccount }.ifEmpty { list.take(1) }
             val trades = mutableListOf<Trade>(); val orders = mutableListOf<Order>()
+            var allOk = true
             val per = sel.map { a ->
                 val t = openTrades(ctx, a)
                 openOrders(ctx, a)?.let { orders += it }
-                if (t != null) trades += t
+                if (t != null) trades += t else allOk = false
                 a to (t?.sumOf { it.profit } ?: a.floating)
             }
-            st.saveTrades(trades); st.saveOrders(orders)
+            if (allOk) st.saveTrades(trades)   // si alguna cuenta falla, se mantiene la lista anterior
+            st.saveOrders(orders)
             st.mfxDetail = per.joinToString("\n") { (a, v) -> "• ${a.name}: ${Notifier.money(v)}" }
             val upd = sel.maxOfOrNull { it.updated } ?: ""
             st.noteMfxUpdate(upd)
@@ -164,10 +167,11 @@ object Myfxbook {
                     if (forceMfx || now - lastMfx >= (if (busy) EVERY_OPEN_MS else EVERY_IDLE_MS)) {
                         forceMfx = false; lastMfx = now; refresh(c)
                     }
-                } else if (st.floating != null || st.trades().isNotEmpty()) {
-                    st.clearFloating(); st.saveTrades(emptyList()); st.saveOrders(emptyList())
+                } else if (st.rawTrades().isNotEmpty() || st.orders().isNotEmpty()) {
+                    st.saveTrades(emptyList()); st.saveOrders(emptyList())
+                    if (st.manualTrades().isEmpty()) st.clearFloating()
                 }
-                val watching = mfx && (st.trades().isNotEmpty() || st.orders().isNotEmpty())
+                val watching = st.trades().isNotEmpty() || (mfx && st.orders().isNotEmpty())
                 if (uiVisible || watching) {
                     Market.fetchQuote()?.let { st.quote = it }
                     Market.evaluate(c)
@@ -182,7 +186,7 @@ object Myfxbook {
             val q = st.quote
             val next = when {
                 uiVisible -> 3_000L
-                mfx && (st.trades().isNotEmpty() || st.orders().isNotEmpty()) -> if (q?.closed == true) 120_000L else st.bgInterval * 1000L
+                st.trades().isNotEmpty() || (mfx && st.orders().isNotEmpty()) -> if (q?.closed == true) 120_000L else st.bgInterval * 1000L
                 else -> 60_000L
             }
             handler?.postDelayed(this, next)

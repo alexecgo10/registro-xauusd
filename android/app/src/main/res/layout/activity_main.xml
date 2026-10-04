@@ -170,6 +170,13 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:orientation="vertical" />
+                        <Button
+                            android:id="@+id/btnAddTrade"
+                            style="@style/BtnOutlined"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="＋  Añadir operación" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 

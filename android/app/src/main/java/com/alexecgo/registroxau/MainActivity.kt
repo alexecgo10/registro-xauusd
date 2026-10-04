@@ -109,6 +109,7 @@ class MainActivity : AppCompatActivity() {
     private var signalOpen = false
 
     private fun setupSignal() {
+        findViewById<Button>(R.id.btnAddTrade).setOnClickListener { tradeDialog(null) }
         findViewById<Button>(R.id.btnClose).setOnClickListener {
             sendBroadcast(Intent(this, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE))
         }
@@ -549,7 +550,7 @@ class MainActivity : AppCompatActivity() {
         val mfx = store.mfxOn && store.mfxEmail.isNotEmpty()
         val trades = store.trades()
         val orders = store.orders()
-        findViewById<View>(R.id.cardTrades).visibility = if (mfx) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.cardTrades).visibility = View.VISIBLE
         findViewById<View>(R.id.txtStale).visibility = if (mfx && store.mfxStale()) View.VISIBLE else View.GONE
         findViewById<View>(R.id.cardOrders).visibility = if (mfx && orders.isNotEmpty()) View.VISIBLE else View.GONE
 
@@ -557,21 +558,30 @@ class MainActivity : AppCompatActivity() {
         val tb = findViewById<LinearLayout>(R.id.boxTrades)
         tb.removeAllViews()
         val tw = floatArrayOf(0.9f, 0.8f, 1.3f, 1.3f)
+        fun withActions(r: LinearLayout, t: Trade?): LinearLayout {
+            r.gravity = android.view.Gravity.CENTER_VERTICAL
+            r.addView(if (t == null) cell("", C_INK2, 0.45f) else toggle("✏️", true) { tradeDialog(t) }.also {
+                (it.layoutParams as LinearLayout.LayoutParams).weight = 0.45f; it.textSize = 14f })
+            r.addView(if (t == null) cell("", C_INK2, 0.45f) else toggle("✕", true) { removeTrade(t) }.also {
+                (it.layoutParams as LinearLayout.LayoutParams).weight = 0.45f; it.textSize = 16f; it.setTextColor(C_INK2) })
+            return r
+        }
         if (trades.isEmpty()) tb.addView(tableRow(listOf("Sin operaciones abiertas" to C_INK2), floatArrayOf(1f)))
         else {
-            tb.addView(tableRow(listOf("Tipo" to C_INK2, "Lotes" to C_INK2, "Entrada" to C_INK2, "Beneficio" to C_INK2), tw))
+            tb.addView(withActions(tableRow(listOf("Tipo" to C_INK2, "Lotes" to C_INK2, "Entrada" to C_INK2, "Beneficio" to C_INK2), tw), null))
             var total = 0.0
             trades.sortedBy { it.open }.forEach { t ->
                 val p = t.live(q); total += p
-                tb.addView(tableRow(listOf(
-                    (if (t.buy) "BUY" else "SELL") to (if (t.buy) C_BUY else C_SELL),
+                val mark = if (t.manual) " ✋" else if (t.edited) " ✎" else ""
+                tb.addView(withActions(tableRow(listOf(
+                    ((if (t.buy) "BUY" else "SELL") + mark) to (if (t.buy) C_BUY else C_SELL),
                     Market.fmtLots(t.lots) to C_INK,
                     Market.fmtPrice(t.open) to C_INK,
                     Notifier.money(p) to (if (p < 0) C_SELL else C_POS)
-                ), tw))
+                ), tw), t))
             }
-            tb.addView(tableRow(listOf("Total" to C_INK, "" to C_INK, "" to C_INK,
-                Notifier.money(total) to (if (total < 0) C_SELL else C_POS)), tw, bold = true))
+            tb.addView(withActions(tableRow(listOf("Total" to C_INK, "" to C_INK, "" to C_INK,
+                Notifier.money(total) to (if (total < 0) C_SELL else C_POS)), tw, bold = true), null))
         }
 
         // Promedios (órdenes pendientes): tipo · lotes · precio · distancia · 🔔 · ⏰
@@ -600,6 +610,114 @@ class MainActivity : AppCompatActivity() {
                 ob.addView(row)
             }
         }
+    }
+
+    // ---------- Añadir / editar / quitar operaciones ----------
+    private fun afterTradeChange() {
+        Myfxbook.kick(this)   // recalcula flotante e isla al momento
+        refresh()
+    }
+
+    private fun removeTrade(t: Trade) {
+        val msg = if (t.manual) "¿Borrar esta operación añadida a mano?"
+            else "¿Quitar esta operación de la lista?\nSi Myfxbook la tiene por error, dejará de contar en el flotante. Si de verdad está abierta, volverá a aparecer cuando Myfxbook la vuelva a enviar."
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("${if (t.buy) "BUY" else "SELL"} ${Market.fmtLots(t.lots)} · ${Market.fmtPrice(t.open)}")
+            .setMessage(msg)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton(if (t.manual) "Borrar" else "Quitar") { _, _ ->
+                if (t.manual) store.saveManual(store.manualTrades().filter { it.key != t.key })
+                else store.tradeHidden = store.tradeHidden + t.key
+                afterTradeChange()
+            }.show()
+    }
+
+    /** Ventana para añadir (t = null) o editar una operación. */
+    private fun tradeDialog(t: Trade?) {
+        val dp = resources.displayMetrics.density
+        fun px(v: Int) = (v * dp).toInt()
+        val q = store.quote
+        var buy = t?.buy ?: true
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(px(20), px(8), px(20), 0) }
+
+        // Compra / venta
+        val sideRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val bBuy = Button(this).apply { text = "BUY" }
+        val bSell = Button(this).apply { text = "SELL" }
+        val price = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            textSize = 22f; gravity = android.view.Gravity.CENTER; setTextColor(C_INK)
+            typeface = android.graphics.Typeface.MONOSPACE
+        }
+        fun current(): Double? = q?.let { if (buy) it.ask else it.bid }
+        fun paint() {
+            bBuy.setBackgroundColor(if (buy) C_BUY else 0x22000000); bBuy.setTextColor(if (buy) 0xFFFFFFFF.toInt() else C_INK2)
+            bSell.setBackgroundColor(if (!buy) C_SELL else 0x22000000); bSell.setTextColor(if (!buy) 0xFFFFFFFF.toInt() else C_INK2)
+        }
+        fun parsePrice() = price.text.toString().replace(" ", "").replace(".", "").replace(",", ".").toDoubleOrNull()
+            ?: price.text.toString().toDoubleOrNull()
+        fun setPrice(v: Double) { price.setText(String.format(java.util.Locale.US, "%.2f", v)); price.setSelection(price.text.length) }
+        bBuy.setOnClickListener { val follow = t == null && parsePrice() == current(); buy = true; paint(); if (follow) current()?.let { setPrice(it) } }
+        bSell.setOnClickListener { val follow = t == null && parsePrice() == current(); buy = false; paint(); if (follow) current()?.let { setPrice(it) } }
+        val lpHalf = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = px(4) }
+        sideRow.addView(bBuy, lpHalf); sideRow.addView(bSell, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = px(4) })
+        root.addView(sideRow)
+
+        // Lotes
+        root.addView(TextView(this).apply { text = "Lotes"; setTextColor(C_INK2); setPadding(0, px(12), 0, 0) })
+        val lots = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(String.format(java.util.Locale.US, "%.2f", t?.lots ?: store.lastManualLots)); setTextColor(C_INK)
+        }
+        root.addView(lots)
+
+        // Precio con −/+ a los lados
+        root.addView(TextView(this).apply { text = "Precio de entrada"; setTextColor(C_INK2); setPadding(0, px(12), 0, 0) })
+        val priceRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL }
+        fun stepCol(sign: Int) = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            listOf(1, 5, 10, 50).forEach { n ->
+                addView(Button(this@MainActivity, null, 0, com.google.android.material.R.style.Widget_Material3_Button_TextButton).apply {
+                    text = (if (sign < 0) "−" else "+") + n
+                    setTextColor(if (sign < 0) C_SELL else C_POS)
+                    minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+                    setPadding(px(8), px(2), px(8), px(2))
+                    setOnClickListener { (parsePrice() ?: current())?.let { setPrice(it + sign * n) } }
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, px(38)))
+            }
+        }
+        priceRow.addView(stepCol(-1))
+        priceRow.addView(price, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        priceRow.addView(stepCol(+1))
+        root.addView(priceRow)
+        if (q != null) root.addView(Button(this, null, 0, com.google.android.material.R.style.Widget_Material3_Button_TextButton).apply {
+            text = "Usar precio actual"; setTextColor(C_INK2)
+            setOnClickListener { current()?.let { setPrice(it) } }
+        })
+
+        paint()
+        (t?.open ?: current())?.let { setPrice(it) }
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle(if (t == null) "Añadir operación" else "Editar operación")
+            .setView(root)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Guardar") { _, _ ->
+                val l = lots.text.toString().replace(",", ".").toDoubleOrNull()
+                val p = parsePrice()
+                if (l == null || l <= 0 || p == null || p <= 0) { toast("Revisa los lotes y el precio"); return@setPositiveButton }
+                when {
+                    t == null -> {
+                        val k = store.rawTrades().firstOrNull()?.k ?: 0.01   // tus cuentas son en céntimos
+                        store.saveManual(store.manualTrades() + Trade("Manual", "XAUUSD", buy, l, p, 0.0, k,
+                            key = "m|" + System.currentTimeMillis(), manual = true))
+                        store.lastManualLots = l
+                    }
+                    t.manual -> store.saveManual(store.manualTrades().map { if (it.key == t.key) it.copy(buy = buy, lots = l, open = p) else it })
+                    else -> store.editTrade(t.key, l, p)
+                }
+                afterTradeChange()
+            }.show()
     }
 
     private fun toggle(icon: String, on: Boolean, click: () -> Unit) = TextView(this).apply {

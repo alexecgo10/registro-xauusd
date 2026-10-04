@@ -12,8 +12,9 @@ data class Quote(val bid: Double, val ask: Double, val ts: Long) {
     val closed get() = System.currentTimeMillis() - ts > 10 * 60_000L
 }
 
-/** Operación abierta (de Myfxbook). Importes en dólares. */
-data class Trade(val acc: String, val sym: String, val buy: Boolean, val lots: Double, val open: Double, val profit: Double, val k: Double) {
+/** Operación abierta (de Myfxbook o añadida a mano). Importes en dólares. */
+data class Trade(val acc: String, val sym: String, val buy: Boolean, val lots: Double, val open: Double,
+                 val profit: Double, val k: Double, val key: String = "", val manual: Boolean = false, val edited: Boolean = false) {
     val gold get() = sym.contains("XAU", true)
     /** Beneficio en directo con el precio actual (sin swap). */
     fun live(q: Quote?): Double =
@@ -21,11 +22,12 @@ data class Trade(val acc: String, val sym: String, val buy: Boolean, val lots: D
         else (if (buy) q.bid - open else open - q.ask) * lots * 100 * k
 
     fun toJson(): JSONObject = JSONObject().put("acc", acc).put("sym", sym).put("buy", buy)
-        .put("lots", lots).put("open", open).put("profit", profit).put("k", k)
+        .put("lots", lots).put("open", open).put("profit", profit).put("k", k).put("key", key).put("manual", manual)
 
     companion object {
         fun of(o: JSONObject) = Trade(o.optString("acc"), o.optString("sym"), o.optBoolean("buy"),
-            o.optDouble("lots"), o.optDouble("open"), o.optDouble("profit"), o.optDouble("k", 1.0))
+            o.optDouble("lots"), o.optDouble("open"), o.optDouble("profit"), o.optDouble("k", 1.0),
+            o.optString("key"), o.optBoolean("manual"))
     }
 }
 
@@ -83,8 +85,8 @@ object Market {
         val q = st.quote ?: return
         val trades = st.trades()
 
-        // Flotante en directo
-        if (st.mfxOn && trades.isNotEmpty()) {
+        // Flotante en directo (Myfxbook corregido a mano + operaciones manuales)
+        if (st.mfxOn || st.manualTrades().isNotEmpty()) {
             val f = trades.sumOf { it.live(q) }
             val byAcc = trades.groupBy { it.acc }
             if (byAcc.size > 1) st.mfxDetail = byAcc.entries.joinToString("\n") { (a, l) -> "• $a: ${Notifier.money(l.sumOf { it.live(q) })}" }

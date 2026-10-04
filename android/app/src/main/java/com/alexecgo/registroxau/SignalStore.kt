@@ -167,10 +167,47 @@ class SignalStore(context: Context) {
         }
     val prevBid: Double? get() = if (prefs.contains("pxPrev")) prefs.getFloat("pxPrev", 0f).toDouble() else null
 
-    fun trades(): List<Trade> = try {
+    /** Operaciones tal como las da Myfxbook. */
+    fun rawTrades(): List<Trade> = try {
         val a = JSONArray(prefs.getString("trades", "[]")); (0 until a.length()).map { Trade.of(a.getJSONObject(it)) }
     } catch (e: Exception) { emptyList() }
-    fun saveTrades(l: List<Trade>) = prefs.edit().putString("trades", JSONArray(l.map { it.toJson() }).toString()).apply()
+    fun saveTrades(l: List<Trade>) {
+        // Limpia ocultas/ediciones de operaciones que Myfxbook ya no tiene.
+        val keys = l.map { it.key }.toSet()
+        val e = prefs.edit().putString("trades", JSONArray(l.map { it.toJson() }).toString())
+        if (l.isNotEmpty() || prefs.contains("trades")) {
+            e.putStringSet("tradeHidden", HashSet(tradeHidden.filter { it in keys }))
+            val ed = tradeEdits; val keep = JSONObject()
+            ed.keys().forEach { k -> if (k in keys) keep.put(k, ed.get(k)) }
+            e.putString("tradeEdits", keep.toString())
+        }
+        e.apply()
+    }
+
+    /** Operaciones que se muestran: Myfxbook (sin las ocultas, con tus correcciones) + las añadidas a mano. */
+    fun trades(): List<Trade> {
+        val hidden = tradeHidden; val ed = tradeEdits
+        val fromMfx = rawTrades().filter { it.key !in hidden }.map { t ->
+            ed.optJSONObject(t.key)?.let { o -> t.copy(lots = o.optDouble("lots", t.lots), open = o.optDouble("open", t.open), edited = true) } ?: t
+        }
+        return fromMfx + manualTrades()
+    }
+
+    var tradeHidden: Set<String>
+        get() = prefs.getStringSet("tradeHidden", emptySet())!!.toSet()
+        set(v) = prefs.edit().putStringSet("tradeHidden", HashSet(v)).apply()
+    val tradeEdits: JSONObject get() = try { JSONObject(prefs.getString("tradeEdits", "{}")) } catch (e: Exception) { JSONObject() }
+    fun editTrade(key: String, lots: Double, open: Double) =
+        prefs.edit().putString("tradeEdits", tradeEdits.put(key, JSONObject().put("lots", lots).put("open", open)).toString()).apply()
+
+    var lastManualLots: Double
+        get() = prefs.getFloat("lastManualLots", 1f).toDouble()
+        set(v) = prefs.edit().putFloat("lastManualLots", v.toFloat()).apply()
+
+    fun manualTrades(): List<Trade> = try {
+        val a = JSONArray(prefs.getString("manualTrades", "[]")); (0 until a.length()).map { Trade.of(a.getJSONObject(it)) }
+    } catch (e: Exception) { emptyList() }
+    fun saveManual(l: List<Trade>) = prefs.edit().putString("manualTrades", JSONArray(l.map { it.toJson() }).toString()).apply()
 
     fun orders(): List<Order> = try {
         val a = JSONArray(prefs.getString("orders", "[]")); (0 until a.length()).map { Order.of(a.getJSONObject(it)) }
