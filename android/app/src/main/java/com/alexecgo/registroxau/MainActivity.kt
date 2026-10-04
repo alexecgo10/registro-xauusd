@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private var webLoaded = false
     private var googleEmail = ""
     private var tab = R.id.tabSignal
+    private var started = false
 
     private val changed = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) = refresh()
@@ -101,7 +102,6 @@ class MainActivity : AppCompatActivity() {
         setupSettings()
         setupMyfxbook()
         setupSwipe()
-        loadWeb() // se carga en segundo plano: la pestaña Registro abre al instante
     }
 
     // ---------- Pestañas ----------
@@ -111,7 +111,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.pageHistory).visibility = if (id == R.id.tabHistory) View.VISIBLE else View.GONE
         findViewById<View>(R.id.pageSettings).visibility = if (id == R.id.tabSettings) View.VISIBLE else View.GONE
         web.visibility = if (id == R.id.tabWeb) View.VISIBLE else View.GONE
-        if (id == R.id.tabWeb) loadWeb()
+        if (id == R.id.tabWeb) { loadWeb(); web.onResume() } else if (webLoaded) web.onPause()
+        Myfxbook.uiVisible = started && id == R.id.tabSignal
+        lastSignalSig = ""
         refresh()
     }
 
@@ -124,7 +126,7 @@ class MainActivity : AppCompatActivity() {
             sendBroadcast(Intent(this, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE))
         }
         findViewById<View>(R.id.cardSignal).setOnClickListener {
-            if (store.state()?.averages?.isNotEmpty() == true) { signalOpen = !signalOpen; refresh() }
+            if (store.state()?.averages?.isNotEmpty() == true) { signalOpen = !signalOpen; lastSignalSig = ""; refresh() }
         }
         val sched = findViewById<MaterialSwitch>(R.id.switchSched)
         sched.isChecked = store.alarmSched
@@ -250,6 +252,7 @@ class MainActivity : AppCompatActivity() {
     // ---------- Myfxbook ----------
     private var mfxIds: List<String> = emptyList()
     private var fillingSpinner = false
+    private var lastSpinner: List<String> = emptyList()
 
     private fun setupMyfxbook() {
         val sw = findViewById<MaterialSwitch>(R.id.switchMfx)
@@ -302,10 +305,13 @@ class MainActivity : AppCompatActivity() {
         mfxIds = listOf("all") + items.map { it.first }
         val labels = listOf("Todas (suma)") + items.map { it.second }
         val sp = findViewById<Spinner>(R.id.spinnerMfx)
-        fillingSpinner = true
-        sp.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
-        sp.setSelection(mfxIds.indexOf(store.mfxAccount).coerceAtLeast(0))
-        sp.post { fillingSpinner = false }
+        if (labels != lastSpinner) {
+            lastSpinner = labels
+            fillingSpinner = true
+            sp.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
+            sp.setSelection(mfxIds.indexOf(store.mfxAccount).coerceAtLeast(0))
+            sp.post { fillingSpinner = false }
+        }
     }
 
     // ---------- Registro (web dentro de la app) ----------
@@ -393,8 +399,11 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onStart() {
         super.onStart()
-        Myfxbook.uiVisible = true
+        started = true
+        Myfxbook.uiVisible = tab == R.id.tabSignal
         Myfxbook.kick(this)
+        lastSignalSig = ""
+        if (webLoaded && tab == R.id.tabWeb) web.onResume()
         ContextCompat.registerReceiver(
             this, changed, IntentFilter(SignalListenerService.ACTION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED
         )
@@ -403,7 +412,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        started = false
         Myfxbook.uiVisible = false
+        if (webLoaded) web.onPause()
         try { unregisterReceiver(changed) } catch (e: Exception) { }
     }
 
@@ -419,7 +430,21 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(button).visibility = if (ok == false) View.VISIBLE else View.GONE
     }
 
+    private var lastSignalSig = ""
+
+    /** Solo se redibuja la pestaña que está a la vista. */
     private fun refresh() {
+        when (tab) {
+            R.id.tabSignal -> refreshSignal()
+            R.id.tabHistory -> {
+                val h = store.history()
+                findViewById<TextView>(R.id.txtHistory).text = if (h.isEmpty()) "—" else h.joinToString("\n")
+            }
+            R.id.tabSettings -> refreshSettings()
+        }
+    }
+
+    private fun refreshSettings() {
         val listenerOn = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
         val notifOn = Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -433,16 +458,31 @@ class MainActivity : AppCompatActivity() {
         row(R.id.txtLive, R.id.btnLive, canPostPromoted(), "Actualizaciones en directo (isla)")
         row(R.id.txtFullScreen, R.id.btnFullScreen, fsOk, "Alarma a pantalla completa")
 
-        findViewById<TextView>(R.id.txtGoogle).text = if (googleEmail.isNotEmpty()) googleEmail else "Sin sesión"
+        findViewById<TextView>(R.id.txtGoogle).text = when {
+            googleEmail.isNotEmpty() -> googleEmail
+            !webLoaded -> "Abre la pestaña Registro para ver la sesión"
+            else -> "Sin sesión"
+        }
         findViewById<Button>(R.id.btnGoogle).text = if (googleEmail.isNotEmpty()) "Cerrar sesión" else "Iniciar sesión con Google"
-
         refreshMyfxbook()
+    }
+
+    private fun refreshSignal() {
+        // Firma de todo lo que se ve: si nada ha cambiado, no se redibuja.
+        val q = store.quote
+        val s = store.state()
+        val sig = listOf(q?.bid, q?.ask, q?.closed, store.prevBid, store.prefs.getString("trades", ""),
+            store.prefs.getString("manualTrades", ""), store.prefs.getString("orders", ""), store.tradeHidden,
+            store.tradeEdits.toString(), store.ordOff, store.ordAlarm, store.ordFired, store.newsJson.length, store.newsAt,
+            System.currentTimeMillis() / 60_000, s, signalOpen, store.mfxStale(), store.mfxOn, store.schedFrom, store.schedTo,
+            store.newsOn, store.newsMedium, store.newsBefore).hashCode().toString()
+        if (sig == lastSignalSig) return
+        lastSignalSig = sig
 
         refreshMarket()
         findViewById<MaterialSwitch>(R.id.switchSched).text =
             "🌙 Alarma con horario  ·  ${store.schedFrom}–${store.schedTo}"
 
-        val s = store.state()
         val hasAvg = s?.averages?.isNotEmpty() == true
         if (!hasAvg) signalOpen = false
         findViewById<TextView>(R.id.txtSignalChevron).text =
@@ -458,9 +498,6 @@ class MainActivity : AppCompatActivity() {
         body.text = s?.let { "Abierta a las " + java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(it.openedAt)) } ?: ""
         body.visibility = if (s != null) View.VISIBLE else View.GONE
         findViewById<Button>(R.id.btnClose).visibility = if (s != null) View.VISIBLE else View.GONE
-
-        val h = store.history()
-        findViewById<TextView>(R.id.txtHistory).text = if (h.isEmpty()) "—" else h.joinToString("\n")
     }
 
     // ---------- Apagar ----------

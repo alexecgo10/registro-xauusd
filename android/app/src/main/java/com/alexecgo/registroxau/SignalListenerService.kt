@@ -32,6 +32,7 @@ class SignalListenerService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         // Si se quita nuestra notificación fija con una señal abierta, la volvemos a poner.
         if (sbn.packageName == packageName && (sbn.id == Notifier.ONGOING_ID || sbn.id == Notifier.FLOAT_ID)) {
+            Notifier.forget(sbn.id)
             Notifier.showOngoing(this)
         }
     }

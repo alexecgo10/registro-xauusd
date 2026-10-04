@@ -85,10 +85,30 @@ object Notifier {
     fun showOngoing(ctx: Context) {
         ensureChannels(ctx)
         if (SignalStore(ctx).paused) {
-            NotificationManagerCompat.from(ctx).cancel(ONGOING_ID); NotificationManagerCompat.from(ctx).cancel(FLOAT_ID); return
+            cancel(ctx, ONGOING_ID); cancel(ctx, FLOAT_ID); return
         }
         showSignal(ctx)
         showFloating(ctx)
+    }
+
+    private val lastPosted = HashMap<Int, String>()
+
+    /** Publica solo si ha cambiado algo (evita trabajo inútil de la barra de notificaciones). */
+    private fun post(ctx: Context, id: Int, n: android.app.Notification, sig: String) {
+        if (lastPosted[id] == sig) return
+        try { NotificationManagerCompat.from(ctx).notify(id, n); lastPosted[id] = sig } catch (e: SecurityException) { }
+    }
+
+    private fun sigOf(n: android.app.Notification): String = with(n.extras) {
+        "${getCharSequence(android.app.Notification.EXTRA_TITLE)}|${getCharSequence(android.app.Notification.EXTRA_TEXT)}|" +
+            "${getCharSequence("android.shortCriticalText")}|${n.color}|${n.smallIcon?.resId}"
+    }
+
+    /** El sistema o el usuario la quitó: la próxima vez hay que volver a publicarla. */
+    fun forget(id: Int) { lastPosted.remove(id) }
+
+    private fun cancel(ctx: Context, id: Int) {
+        lastPosted.remove(id); NotificationManagerCompat.from(ctx).cancel(id)
     }
 
     private fun promote(n: android.app.Notification, chip: String) {
@@ -101,7 +121,7 @@ object Notifier {
     private fun showSignal(ctx: Context) {
         val nm = NotificationManagerCompat.from(ctx)
         val s = SignalStore(ctx).state()
-        if (s == null) { nm.cancel(ONGOING_ID); return }
+        if (s == null) { cancel(ctx, ONGOING_ID); return }
         if (!canNotify(ctx)) return
         val close = PendingIntent.getBroadcast(
             ctx, 1, Intent(ctx, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE),
@@ -124,7 +144,7 @@ object Notifier {
             .build()
         promote(n, (if (s.side == "BUY") "🔵 " else "🔴 ") + shortText(s))
         addHyperIsland(ctx, n, s)
-        try { nm.notify(ONGOING_ID, n) } catch (e: SecurityException) { }
+        post(ctx, ONGOING_ID, n, sigOf(n))
     }
 
     /** Isla 2: el flotante de Myfxbook (solo si hay operaciones abiertas). */
@@ -132,7 +152,7 @@ object Notifier {
         val nm = NotificationManagerCompat.from(ctx)
         val store = SignalStore(ctx)
         val f = if (store.mfxOn || store.manualTrades().isNotEmpty()) store.floating?.takeIf { kotlin.math.abs(it) > 0.005 } else null
-        if (f == null) { nm.cancel(FLOAT_ID); return }
+        if (f == null) { cancel(ctx, FLOAT_ID); return }
         if (!canNotify(ctx)) return
         val emoji = (if (store.mfxStale()) "⚠️" else "") + if (f < 0) "📉" else "📈"
         val lines = listOfNotNull(
@@ -155,7 +175,7 @@ object Notifier {
             .setSortKey("2")
             .build()
         promote(n, "$emoji ${money(f, true)}")
-        try { nm.notify(FLOAT_ID, n) } catch (e: SecurityException) { }
+        post(ctx, FLOAT_ID, n, sigOf(n))
     }
 
     /** Icono ya pintado en un bitmap (la isla no siempre respeta el tinte). */
