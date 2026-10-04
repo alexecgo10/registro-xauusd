@@ -73,6 +73,11 @@ class SignalStore(context: Context) {
         .putString("floatingUpd", updated).remove("mfxError").apply()
     fun clearFloating() = prefs.edit().remove("floating").remove("floatingAt").apply()
 
+    /** App apagada a mano: no lee Telegram ni consulta nada hasta que se vuelva a abrir. */
+    var paused: Boolean
+        get() = prefs.getBoolean("paused", false)
+        set(v) = prefs.edit().putBoolean("paused", v).commit().let { }
+
     /** No molestar: todo sigue funcionando, pero sin sonidos ni alarmas. */
     var dnd: Boolean
         get() = prefs.getBoolean("dnd", false)

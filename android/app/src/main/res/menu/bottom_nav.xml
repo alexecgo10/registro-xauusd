@@ -4,4 +4,5 @@
     <item android:id="@+id/tabWeb" android:icon="@drawable/ic_tab_book" android:title="Registro" />
     <item android:id="@+id/tabHistory" android:icon="@drawable/ic_tab_history" android:title="Historial" />
     <item android:id="@+id/tabSettings" android:icon="@drawable/ic_tab_settings" android:title="Ajustes" />
+    <item android:id="@+id/tabPower" android:icon="@drawable/ic_tab_power" android:title="Apagar" />
 </menu>

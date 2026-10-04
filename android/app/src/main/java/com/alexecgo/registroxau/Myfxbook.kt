@@ -159,6 +159,7 @@ object Myfxbook {
         override fun run() {
             val c = appCtx ?: return
             val st = SignalStore(c)
+            if (st.paused) return
             val mfx = st.mfxOn && st.mfxEmail.isNotEmpty()
             val now = System.currentTimeMillis()
             try {

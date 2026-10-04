@@ -13,12 +13,15 @@ class SignalListenerService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        if (SignalStore(this).paused) { requestUnbind(); return }
+        instance = this
         Notifier.showOngoing(this)
         Myfxbook.start(this) // flotante de Myfxbook (si está activado)
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
+        instance = null
         Myfxbook.stop()
     }
 
@@ -45,6 +48,7 @@ class SignalListenerService : NotificationListenerService() {
     }
 
     companion object {
+        @Volatile var instance: SignalListenerService? = null
         val TELEGRAM = setOf(
             "org.telegram.messenger", "org.telegram.messenger.web", "org.telegram.messenger.beta",
             "org.telegram.plus", "org.thunderdog.challegram", "tw.nekomimi.nekogram", "nekox.messenger"

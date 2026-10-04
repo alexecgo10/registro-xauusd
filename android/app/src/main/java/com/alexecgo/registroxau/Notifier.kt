@@ -84,6 +84,9 @@ object Notifier {
     /** Actualiza las dos notificaciones fijas (cada una con su isla): la señal y el flotante. */
     fun showOngoing(ctx: Context) {
         ensureChannels(ctx)
+        if (SignalStore(ctx).paused) {
+            NotificationManagerCompat.from(ctx).cancel(ONGOING_ID); NotificationManagerCompat.from(ctx).cancel(FLOAT_ID); return
+        }
         showSignal(ctx)
         showFloating(ctx)
     }

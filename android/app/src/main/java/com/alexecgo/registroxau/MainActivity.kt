@@ -76,7 +76,17 @@ class MainActivity : AppCompatActivity() {
         Notifier.ensureChannels(this)
         web = findViewById(R.id.web)
 
-        findViewById<BottomNavigationView>(R.id.nav).setOnItemSelectedListener { showTab(it.itemId); true }
+        findViewById<BottomNavigationView>(R.id.nav).setOnItemSelectedListener {
+            if (it.itemId == R.id.tabPower) { askPowerOff(); false } else { showTab(it.itemId); true }
+        }
+        // Si estaba apagada, al abrirla vuelve a funcionar todo.
+        if (store.paused) {
+            store.paused = false
+            try {
+                android.service.notification.NotificationListenerService.requestRebind(
+                    android.content.ComponentName(this, SignalListenerService::class.java))
+            } catch (e: Exception) { }
+        }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
@@ -451,6 +461,27 @@ class MainActivity : AppCompatActivity() {
 
         val h = store.history()
         findViewById<TextView>(R.id.txtHistory).text = if (h.isEmpty()) "—" else h.joinToString("\n")
+    }
+
+    // ---------- Apagar ----------
+    private fun askPowerOff() {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Apagar la app")
+            .setMessage("Dejará de leer las señales de Telegram, de consultar el precio y Myfxbook, y se quitarán la isla y las notificaciones fijas.\n\nVuelve a funcionar todo en cuanto abras la app.")
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Apagar") { _, _ -> powerOff() }
+            .show()
+    }
+
+    private fun powerOff() {
+        store.paused = true
+        Alarm.stop(this)
+        Myfxbook.stop()
+        Notifier.showOngoing(this)   // con la app apagada, quita las notificaciones fijas
+        try { SignalListenerService.instance?.requestUnbind() } catch (e: Exception) { }
+        web.stopLoading()
+        finishAndRemoveTask()
+        android.os.Handler(mainLooper).postDelayed({ android.os.Process.killProcess(android.os.Process.myPid()) }, 400)
     }
 
     // ---------- Deslizar para actualizar ----------
