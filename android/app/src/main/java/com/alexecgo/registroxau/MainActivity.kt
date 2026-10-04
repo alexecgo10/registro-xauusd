@@ -162,6 +162,23 @@ class MainActivity : AppCompatActivity() {
             } else googleSignIn()
         }
 
+        val nOn = findViewById<MaterialSwitch>(R.id.switchNews)
+        val nMed = findViewById<MaterialSwitch>(R.id.switchNewsMedium)
+        val nBefore = findViewById<EditText>(R.id.inputNewsBefore)
+        val nAt = findViewById<MaterialSwitch>(R.id.switchNewsAt)
+        val nBlock = findViewById<MaterialSwitch>(R.id.switchNewsBlock)
+        nOn.isChecked = store.newsOn; nMed.isChecked = store.newsMedium
+        nBefore.setText(store.newsBefore.toString())
+        nAt.isChecked = store.newsAtRelease; nBlock.isChecked = store.newsBlock
+        findViewById<Button>(R.id.btnSaveNews).setOnClickListener {
+            store.newsOn = nOn.isChecked; store.newsMedium = nMed.isChecked
+            store.newsBefore = (nBefore.text.toString().toIntOrNull() ?: 15).coerceIn(0, 240)
+            nBefore.setText(store.newsBefore.toString())
+            store.newsAtRelease = nAt.isChecked; store.newsBlock = nBlock.isChecked
+            Myfxbook.forceNews = true; Myfxbook.kick(this)
+            toast("Guardado"); refresh()
+        }
+
         val rg = findViewById<RadioGroup>(R.id.radioInterval)
         rg.check(when (store.bgInterval) { 5 -> R.id.int5; 20 -> R.id.int20; else -> R.id.int10 })
         rg.setOnCheckedChangeListener { _, id ->
@@ -451,7 +468,7 @@ class MainActivity : AppCompatActivity() {
         sw.setOnRefreshListener {
             when (tab) {
                 R.id.tabWeb -> web.reload()
-                else -> Myfxbook.kick(this)
+                else -> { Myfxbook.forceNews = true; Myfxbook.kick(this) }
             }
             refresh()
             sw.postDelayed({ sw.isRefreshing = false; refresh() }, if (tab == R.id.tabWeb) 1500 else 2500)
@@ -480,7 +497,32 @@ class MainActivity : AppCompatActivity() {
             cells.forEachIndexed { i, (t, c) -> addView(cell(t, c, weights[i], end = i == cells.lastIndex && i > 0, bold = bold)) }
         }
 
+    private fun refreshNews() {
+        val card = findViewById<View>(R.id.cardNews)
+        if (!store.newsOn) { card.visibility = View.GONE; return }
+        card.visibility = View.VISIBLE
+        val box = findViewById<LinearLayout>(R.id.boxNews)
+        box.removeAllViews()
+        val now = System.currentTimeMillis()
+        val next = News.events(store).filter { it.time + News.AFTER_MS >= now }.take(5)
+        if (next.isEmpty()) {
+            box.addView(tableRow(listOf((if (store.newsAt == 0L) "Cargando calendario…" else "Sin noticias importantes esta semana") to C_INK2), floatArrayOf(1f)))
+            return
+        }
+        val w = floatArrayOf(1.1f, 0.4f, 3f)
+        next.forEach { e ->
+            val live = now >= e.time - store.newsBefore * 60_000L && now <= e.time + News.AFTER_MS
+            val day = News.dayLabel(e.time)
+            box.addView(tableRow(listOf(
+                (if (day == "Hoy") News.hhmm(e.time) else "$day ${News.hhmm(e.time)}") to (if (live) C_SELL else C_INK2),
+                e.dot to C_INK,
+                (e.name + (e.forecast.takeIf { it.isNotBlank() }?.let { "  · prev. $it" } ?: "")) to (if (live) C_INK else C_INK)
+            ), w, bold = live))
+        }
+    }
+
     private fun refreshMarket() {
+        refreshNews()
         val q = store.quote
         val price = findViewById<TextView>(R.id.txtPrice)
         val info = findViewById<TextView>(R.id.txtPriceInfo)

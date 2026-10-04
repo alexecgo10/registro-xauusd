@@ -143,6 +143,8 @@ object Myfxbook {
     private var lastMfx = 0L
 
     /** Fuerza una lectura ahora (al abrir la app, al conectar…). */
+    @Volatile var forceNews = false
+
     fun kick(ctx: Context) {
         appCtx = ctx.applicationContext
         forceMfx = true
@@ -171,6 +173,10 @@ object Myfxbook {
                     Market.evaluate(c)
                 }
                 Notifier.showOngoing(c)
+            } catch (e: Exception) { }
+            try {
+                if (forceNews) { forceNews = false; News.fetchIfDue(c, force = true) }
+                News.tick(c)
             } catch (e: Exception) { }
             c.sendBroadcast(android.content.Intent(SignalListenerService.ACTION_CHANGED).setPackage(c.packageName))
             val q = st.quote

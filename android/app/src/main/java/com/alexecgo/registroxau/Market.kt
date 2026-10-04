@@ -110,7 +110,12 @@ object Market {
             fired.add(o.key)
             val title = "✅ ${o.type} ${fmtPrice(o.price)} ha entrado"
             val text = "${fmtLots(o.lots)} lotes · ${o.acc}"
-            if (o.key in st.ordAlarm) Alarm.start(ctx, title, text) else Notifier.alert(ctx, title, text)
+            val news = News.blocking(st)
+            when {
+                news != null -> Notifier.quiet(ctx, title, "$text · en silencio por ${news.name}")
+                o.key in st.ordAlarm -> Alarm.start(ctx, title, text)
+                else -> Notifier.alert(ctx, title, text)
+            }
             st.log("Entró ${o.type} ${fmtPrice(o.price)}")
         }
         st.ordFired = fired

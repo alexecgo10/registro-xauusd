@@ -94,6 +94,32 @@ class SignalStore(context: Context) {
         return System.currentTimeMillis() - prefs.getLong("mfxUpdSeen", 0) > 45 * 60_000L
     }
 
+    // --- Noticias ---
+    var newsOn: Boolean
+        get() = prefs.getBoolean("newsOn", true)
+        set(v) = prefs.edit().putBoolean("newsOn", v).apply()
+    var newsMedium: Boolean
+        get() = prefs.getBoolean("newsMedium", false)
+        set(v) = prefs.edit().putBoolean("newsMedium", v).apply()
+    var newsBefore: Int
+        get() = prefs.getInt("newsBefore", 15)
+        set(v) = prefs.edit().putInt("newsBefore", v).apply()
+    var newsAtRelease: Boolean
+        get() = prefs.getBoolean("newsAtRelease", true)
+        set(v) = prefs.edit().putBoolean("newsAtRelease", v).apply()
+    var newsBlock: Boolean
+        get() = prefs.getBoolean("newsBlock", true)
+        set(v) = prefs.edit().putBoolean("newsBlock", v).apply()
+    var newsJson: String
+        get() = prefs.getString("newsJson", "[]") ?: "[]"
+        set(v) = prefs.edit().putString("newsJson", v).apply()
+    var newsAt: Long
+        get() = prefs.getLong("newsAt", 0)
+        set(v) = prefs.edit().putLong("newsAt", v).apply()
+    var newsDone: Set<String>
+        get() = prefs.getStringSet("newsDone", emptySet())!!.toSet()
+        set(v) = prefs.edit().putStringSet("newsDone", HashSet(v)).apply()
+
     // --- Alarmas ---
     var alarmSched: Boolean
         get() = prefs.getBoolean("alarmSched", false)

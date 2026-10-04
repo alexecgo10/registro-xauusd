@@ -70,6 +70,26 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <!-- Noticias -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardNews"
+                    style="@style/Card"
+                    android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+                        <TextView style="@style/Eyebrow" android:text="Noticias" />
+                        <LinearLayout
+                            android:id="@+id/boxNews"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
                 <!-- Señal actual (se despliega con sus promedios) -->
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/cardSignal"
@@ -415,6 +435,36 @@
                             android:textColor="@color/ink"
                             android:textColorHint="@color/ink2" />
                         <Button android:id="@+id/btnSaveAlarms" style="@style/BtnTonal" android:text="Guardar" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Noticias -->
+                <com.google.android.material.card.MaterialCardView style="@style/Card"
+                    android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+                        <TextView style="@style/Eyebrow" android:text="Noticias (USD)" />
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchNews" style="@style/Sw" android:text="Avisos de noticias" />
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchNewsMedium" style="@style/Sw" android:text="Incluir impacto medio 🟠" />
+                        <TextView style="@style/Line" android:text="Avisar antes (minutos)" />
+                        <EditText
+                            android:id="@+id/inputNewsBefore"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="15"
+                            android:inputType="number"
+                            android:textColor="@color/ink"
+                            android:textColorHint="@color/ink2" />
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchNewsAt" style="@style/Sw" android:text="Avisar al salir el dato" />
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchNewsBlock" style="@style/Sw" android:text="Silenciar promedios durante la noticia" />
+                        <Button android:id="@+id/btnSaveNews" style="@style/BtnTonal" android:text="Guardar" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 

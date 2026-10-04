@@ -231,11 +231,11 @@ object Notifier {
     }
 
     /** Aviso puntual (abrir, promedio, cierre) con sonido por el canal de alarma. */
-    fun alert(ctx: Context, title: String, text: String) {
+    fun alert(ctx: Context, title: String, text: String, allowAlarm: Boolean = true) {
         ensureChannels(ctx)
         val store = SignalStore(ctx)
         if (store.dnd) { quiet(ctx, title, text); return }
-        if (store.alarmActive()) { Alarm.start(ctx, title, text); return }
+        if (allowAlarm && store.alarmActive()) { Alarm.start(ctx, title, text); return }
         if (canNotify(ctx)) {
             val n = NotificationCompat.Builder(ctx, CH_ALERT)
                 .setSmallIcon(R.drawable.ic_stat_signal)
