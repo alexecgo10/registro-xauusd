@@ -54,7 +54,9 @@ class SignalListenerService : NotificationListenerService() {
         val since = if (last == 0L) System.currentTimeMillis() - 15 * 60_000L else last
         var newest = last
         for ((time, text) in msgs.sortedBy { it.first }) {
-            if (time <= since) continue
+            if (time > 0L && time <= since) continue
+            // Sin hora fiable: se evita repetir con el control de duplicados por texto.
+            if (time == 0L && store.alreadySeen("raw|$text")) continue
             newest = maxOf(newest, time)
             store.logRead(text)
             process(this, text)

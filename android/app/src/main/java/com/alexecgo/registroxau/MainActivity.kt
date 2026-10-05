@@ -400,6 +400,14 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         started = true
+        // Tras actualizar la app, Android a veces no vuelve a conectar el lector de notificaciones: se lo pedimos.
+        if (SignalListenerService.instance == null &&
+            NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)) {
+            try {
+                android.service.notification.NotificationListenerService.requestRebind(
+                    android.content.ComponentName(this, SignalListenerService::class.java))
+            } catch (e: Exception) { }
+        }
         Myfxbook.uiVisible = tab == R.id.tabSignal
         Myfxbook.kick(this)
         lastSignalSig = ""
