@@ -15,6 +15,7 @@ class SignalListenerService : NotificationListenerService() {
         super.onListenerConnected()
         if (SignalStore(this).paused) { requestUnbind(); return }
         instance = this
+        SignalStore(this).logSeen("— lector conectado —")
         Notifier.showOngoing(this)
         Myfxbook.start(this) // flotante de Myfxbook (si está activado)
     }
@@ -43,7 +44,15 @@ class SignalListenerService : NotificationListenerService() {
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
         val store = SignalStore(this)
         val title = titleOf(n.extras)
-        if (!title.contains(store.titleFilter, ignoreCase = true)) return
+        // Se busca el canal en todo lo que trae la notificación (título, conversación, remitentes…),
+        // ignorando puntos, espacios y emojis: "LIFT.SIGNALS" = "Lift Signals" = "LIFT·SIGNALS".
+        val hay = norm(listOfNotNull(title, n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
+            n.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.take(60)).joinToString(" ") +
+            " " + sendersOf(n.extras).joinToString(" "))
+        val match = hay.contains(norm(store.titleFilter))
+        store.logSeen((if (match) "✔ " else "· ") + title.take(28) + " | " +
+            (textOf(n.extras) ?: "").replace("\n", " ").take(40))
+        if (!match) return
         // Telegram agrupa varios mensajes en la misma notificación: se procesan todos los nuevos, en orden.
         val msgs = messagesOf(n.extras)
         if (msgs.isEmpty()) {
@@ -103,6 +112,20 @@ class SignalListenerService : NotificationListenerService() {
             (extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
                 ?: extras.getCharSequence(Notification.EXTRA_TITLE)
                 ?: "").toString()
+
+        fun norm(s: String) = s.uppercase().filter { it.isLetterOrDigit() }
+
+        /** Nombres de remitente de los mensajes (en canales suele ser el nombre del canal). */
+        fun sendersOf(extras: Bundle): List<String> {
+            val msgs: Array<Parcelable>? = if (Build.VERSION.SDK_INT >= 33)
+                extras.getParcelableArray(Notification.EXTRA_MESSAGES, Parcelable::class.java)
+            else @Suppress("DEPRECATION") extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+            return msgs.orEmpty().mapNotNull { p ->
+                val b = p as? Bundle ?: return@mapNotNull null
+                b.getCharSequence("sender")?.toString()
+                    ?: (if (Build.VERSION.SDK_INT >= 28) (b.getParcelable("sender_person") as? android.app.Person)?.name?.toString() else null)
+            }
+        }
 
         /** Todos los mensajes (hora, texto) de una notificación de estilo conversación. */
         fun messagesOf(extras: Bundle): List<Pair<Long, String>> {

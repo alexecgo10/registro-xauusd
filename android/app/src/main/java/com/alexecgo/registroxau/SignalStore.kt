@@ -311,6 +311,16 @@ class SignalStore(context: Context) {
         prefs.edit().putString("readLog", JSONArray((listOf(line) + readLog()).take(15)).toString()).apply()
     }
 
+    /** Todas las notificaciones de Telegram que ve la app (diagnóstico). */
+    fun seenLog(): List<String> {
+        val a = JSONArray(prefs.getString("seenLog", "[]") ?: "[]")
+        return (0 until a.length()).map { a.getString(it) }
+    }
+    fun logSeen(line: String) {
+        val l = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()) + " " + line
+        prefs.edit().putString("seenLog", JSONArray((listOf(l) + seenLog()).take(20)).toString()).apply()
+    }
+
     fun history(): List<String> {
         val a = JSONArray(prefs.getString("history", "[]") ?: "[]")
         return (0 until a.length()).map { a.getString(it) }
