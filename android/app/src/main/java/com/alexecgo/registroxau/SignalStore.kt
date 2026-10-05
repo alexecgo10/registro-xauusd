@@ -295,6 +295,10 @@ class SignalStore(context: Context) {
         return false
     }
 
+    var lastCloseAlert: Long
+        get() = prefs.getLong("lastCloseAlert", 0L)
+        set(v) = prefs.edit().putLong("lastCloseAlert", v).apply()
+
     /** Hora del último mensaje de Telegram ya procesado. */
     var tgLastTime: Long
         get() = prefs.getLong("tgLastTime", 0L)
@@ -312,6 +316,7 @@ class SignalStore(context: Context) {
     }
 
     /** Todas las notificaciones de Telegram que ve la app (diagnóstico). */
+    fun clearSeenLog() = prefs.edit().remove("seenLog").apply()
     fun seenLog(): List<String> {
         val a = JSONArray(prefs.getString("seenLog", "[]") ?: "[]")
         return (0 until a.length()).map { a.getString(it) }

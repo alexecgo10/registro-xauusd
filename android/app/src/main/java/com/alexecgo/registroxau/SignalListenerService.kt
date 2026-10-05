@@ -15,7 +15,6 @@ class SignalListenerService : NotificationListenerService() {
         super.onListenerConnected()
         if (SignalStore(this).paused) { requestUnbind(); return }
         instance = this
-        SignalStore(this).logSeen("— lector conectado —")
         Notifier.showOngoing(this)
         Myfxbook.start(this) // flotante de Myfxbook (si está activado)
     }
@@ -50,8 +49,6 @@ class SignalListenerService : NotificationListenerService() {
             n.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.take(60)).joinToString(" ") +
             " " + sendersOf(n.extras).joinToString(" "))
         val match = hay.contains(norm(store.titleFilter))
-        store.logSeen((if (match) "✔ " else "· ") + title.take(28) + " | " +
-            (textOf(n.extras) ?: "").replace("\n", " ").take(40))
         if (!match) return
         // Telegram agrupa varios mensajes en la misma notificación: se procesan todos los nuevos, en orden.
         val msgs = messagesOf(n.extras)
@@ -90,6 +87,9 @@ class SignalListenerService : NotificationListenerService() {
             Notifier.showOngoing(ctx)
             // "Cerramos todo" avisa siempre: aunque la app no tuviera la señal, puedes tener la operación abierta.
             if (!changed && ev == SignalEvent.CloseAll) {
+                // El mismo cierre llega dos veces (mensaje + "fijó …"): solo un aviso cada 10 min.
+                if (System.currentTimeMillis() - store.lastCloseAlert < 10 * 60_000L) return
+                store.lastCloseAlert = System.currentTimeMillis()
                 store.log("Cerramos todo (sin señal abierta en la app)")
                 Notifier.alert(ctx, "✅ Cerramos todo", "LIFT.SIGNALS: cierra lo que tengas abierto")
                 ctx.sendBroadcast(android.content.Intent(ACTION_CHANGED).setPackage(ctx.packageName))

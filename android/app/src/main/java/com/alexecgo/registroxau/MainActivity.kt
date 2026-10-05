@@ -474,10 +474,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnGoogle).text = if (googleEmail.isNotEmpty()) "Cerrar sesión" else "Iniciar sesión con Google"
         refreshMyfxbook()
         val rl = store.readLog()
-        val seen = store.seenLog()
-        findViewById<TextView>(R.id.txtReadLog).text =
-            "Del canal:\n" + (if (rl.isEmpty()) "Ninguno todavía" else rl.joinToString("\n")) +
-            "\n\nTodas las de Telegram (✔ = coincide con el canal):\n" + (if (seen.isEmpty()) "Ninguna — la app no recibe notificaciones" else seen.joinToString("\n"))
+        store.clearSeenLog()
+        findViewById<TextView>(R.id.txtReadLog).text = if (rl.isEmpty()) "Ninguno todavía" else rl.joinToString("\n")
     }
 
     private fun refreshSignal() {
