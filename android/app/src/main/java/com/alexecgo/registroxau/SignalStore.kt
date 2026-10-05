@@ -307,7 +307,7 @@ class SignalStore(context: Context) {
     }
     fun logRead(text: String) {
         val line = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()) + "  " +
-            text.replace("\n", " ").take(60) + (SignalParser.parse(text)?.let { "  → ✔" } ?: "")
+            text.replace("\n", " ").take(60) + (SignalParser.parse(SignalListenerService.plain(text))?.let { "  → ✔" } ?: "")
         prefs.edit().putString("readLog", JSONArray((listOf(line) + readLog()).take(15)).toString()).apply()
     }
 

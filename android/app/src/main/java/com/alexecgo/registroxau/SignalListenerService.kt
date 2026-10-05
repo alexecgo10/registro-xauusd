@@ -83,7 +83,7 @@ class SignalListenerService : NotificationListenerService() {
         /** Aplica un texto (real o de prueba) y avisa si cambia la señal. */
         fun process(ctx: Context, text: String, test: Boolean = false) {
             val store = SignalStore(ctx)
-            val ev = SignalParser.parse(text) ?: return
+            val ev = SignalParser.parse(plain(text)) ?: return
             if (!test && store.alreadySeen(text)) return
             val hadSignal = store.state() != null
             val changed = store.apply(ev)
@@ -113,7 +113,9 @@ class SignalListenerService : NotificationListenerService() {
                 ?: extras.getCharSequence(Notification.EXTRA_TITLE)
                 ?: "").toString()
 
-        fun norm(s: String) = s.uppercase().filter { it.isLetterOrDigit() }
+        /** Pasa letras "de adorno" (𝗟𝗜𝗙𝗧, 𝐋𝐈𝐅𝐓, ｌｉｆｔ…) a letras normales y quita puntos, espacios y emojis. */
+        fun plain(s: String): String = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFKC)
+        fun norm(s: String) = plain(s).uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }
 
         /** Nombres de remitente de los mensajes (en canales suele ser el nombre del canal). */
         fun sendersOf(extras: Bundle): List<String> {
