@@ -74,8 +74,16 @@ class SignalListenerService : NotificationListenerService() {
             val store = SignalStore(ctx)
             val ev = SignalParser.parse(text) ?: return
             if (!test && store.alreadySeen(text)) return
+            val hadSignal = store.state() != null
             val changed = store.apply(ev)
             Notifier.showOngoing(ctx)
+            // "Cerramos todo" avisa siempre: aunque la app no tuviera la señal, puedes tener la operación abierta.
+            if (!changed && ev == SignalEvent.CloseAll) {
+                store.log("Cerramos todo (sin señal abierta en la app)")
+                Notifier.alert(ctx, "✅ Cerramos todo", "LIFT.SIGNALS: cierra lo que tengas abierto")
+                ctx.sendBroadcast(android.content.Intent(ACTION_CHANGED).setPackage(ctx.packageName))
+                return
+            }
             if (!changed) return
             val s = store.state()
             when (ev) {
