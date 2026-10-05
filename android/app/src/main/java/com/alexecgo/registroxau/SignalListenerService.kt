@@ -44,8 +44,22 @@ class SignalListenerService : NotificationListenerService() {
         val store = SignalStore(this)
         val title = titleOf(n.extras)
         if (!title.contains(store.titleFilter, ignoreCase = true)) return
-        val text = textOf(n.extras) ?: return
-        process(this, text)
+        // Telegram agrupa varios mensajes en la misma notificación: se procesan todos los nuevos, en orden.
+        val msgs = messagesOf(n.extras)
+        if (msgs.isEmpty()) {
+            val text = textOf(n.extras) ?: return
+            store.logRead(text); process(this, text); return
+        }
+        val last = store.tgLastTime
+        val since = if (last == 0L) System.currentTimeMillis() - 15 * 60_000L else last
+        var newest = last
+        for ((time, text) in msgs.sortedBy { it.first }) {
+            if (time <= since) continue
+            newest = maxOf(newest, time)
+            store.logRead(text)
+            process(this, text)
+        }
+        if (newest > last) store.tgLastTime = newest
     }
 
     companion object {
@@ -79,6 +93,19 @@ class SignalListenerService : NotificationListenerService() {
             (extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
                 ?: extras.getCharSequence(Notification.EXTRA_TITLE)
                 ?: "").toString()
+
+        /** Todos los mensajes (hora, texto) de una notificación de estilo conversación. */
+        fun messagesOf(extras: Bundle): List<Pair<Long, String>> {
+            val msgs: Array<Parcelable>? = if (Build.VERSION.SDK_INT >= 33)
+                extras.getParcelableArray(Notification.EXTRA_MESSAGES, Parcelable::class.java)
+            else
+                @Suppress("DEPRECATION") extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+            return msgs.orEmpty().mapNotNull { p ->
+                val b = p as? Bundle ?: return@mapNotNull null
+                val t = b.getCharSequence("text")?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                b.getLong("time", 0L) to t
+            }
+        }
 
         /** Último mensaje de la notificación (estilo conversación) o su texto normal. */
         fun textOf(extras: Bundle): String? {

@@ -14,7 +14,8 @@ object SignalParser {
     private val closeAll = Regex("(?i)\\bcerramos\\s+todo")
     private val closeAverage = Regex("(?i)cerramos\\s+el\\s+promedio\\D*?$PRICE")
     private val average = Regex("(?i)^\\s*promedios?\\s+$PRICE")
-    private val open = Regex("(?i)^\\s*XAUUSD\\s+(BUY|SELL)\\s+$PRICE")
+    // Al principio de una línea, o citado (p. ej. "LIFT.SIGNALS fijó “XAUUSD BUY 4156…”").
+    private val open = Regex("(?im)(?:^|[“\"«'])\\s*XAUUSD\\s+(BUY|SELL)\\s+$PRICE")
 
     /** Devuelve el evento que contiene el texto, o null si no es un mensaje de señal. */
     fun parse(text: String?): SignalEvent? {

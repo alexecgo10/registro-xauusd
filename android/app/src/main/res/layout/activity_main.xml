@@ -500,6 +500,16 @@
                                 android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
                                 android:text="Cerrar todo" />
                         </LinearLayout>
+                        <TextView style="@style/Line" android:text="Últimos mensajes leídos del canal" />
+                        <TextView
+                            android:id="@+id/txtReadLog"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginBottom="8dp"
+                            android:fontFamily="monospace"
+                            android:textColor="@color/ink2"
+                            android:textSize="12sp" />
                         <Button android:id="@+id/btnTestAlarm" style="@style/BtnOutlined"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
                             android:text="Probar alarma en 10 s" />

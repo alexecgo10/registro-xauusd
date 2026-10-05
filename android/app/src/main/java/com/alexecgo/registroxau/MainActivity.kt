@@ -465,6 +465,8 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnGoogle).text = if (googleEmail.isNotEmpty()) "Cerrar sesión" else "Iniciar sesión con Google"
         refreshMyfxbook()
+        val rl = store.readLog()
+        findViewById<TextView>(R.id.txtReadLog).text = if (rl.isEmpty()) "Ninguno todavía" else rl.joinToString("\n")
     }
 
     private fun refreshSignal() {

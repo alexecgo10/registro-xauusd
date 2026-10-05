@@ -295,6 +295,22 @@ class SignalStore(context: Context) {
         return false
     }
 
+    /** Hora del último mensaje de Telegram ya procesado. */
+    var tgLastTime: Long
+        get() = prefs.getLong("tgLastTime", 0L)
+        set(v) = prefs.edit().putLong("tgLastTime", v).apply()
+
+    /** Últimos mensajes leídos del canal (para comprobar que la lectura funciona). */
+    fun readLog(): List<String> {
+        val a = JSONArray(prefs.getString("readLog", "[]") ?: "[]")
+        return (0 until a.length()).map { a.getString(it) }
+    }
+    fun logRead(text: String) {
+        val line = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()) + "  " +
+            text.replace("\n", " ").take(60) + (SignalParser.parse(text)?.let { "  → ✔" } ?: "")
+        prefs.edit().putString("readLog", JSONArray((listOf(line) + readLog()).take(15)).toString()).apply()
+    }
+
     fun history(): List<String> {
         val a = JSONArray(prefs.getString("history", "[]") ?: "[]")
         return (0 until a.length()).map { a.getString(it) }
