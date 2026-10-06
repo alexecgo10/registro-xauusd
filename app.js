@@ -364,6 +364,7 @@ function renderReg(S){
   const opt=ids.map(a=>`<option value="${esc(a)}">${esc(accName(a))} (${esc(a)})</option>`).join('');
   const mAcc=$('mAcc'); const keep=mAcc.value; mAcc.innerHTML=opt; mAcc.value= keep && ids.includes(keep)? keep : (sel!=='all'?sel:ids[0]);
   updateStartField();
+  ['tFrom','tTo'].forEach((id,i)=>{ const el=$(id); const k=el.value; el.innerHTML=opt; el.value = k && ids.includes(k) ? k : (ids[i]||ids[0]); });
   const rows=[...S].reverse();
   $('regCount').textContent = rows.length? rows.length+' días' : '';
   $('regList').innerHTML = rows.length? rows.map(x=>`<div class="li" data-d="${x.date}" role="button" tabindex="0">
@@ -514,7 +515,7 @@ function render(){
   if (view==='cop') renderCop();
   if (view==='res') renderRes(S);
   if (view==='exp') renderExp(S);
-  document.querySelectorAll('#importCard,#manualCard,#movCard,#sSave').forEach(el=>{ if(!canWrite && db) el.hidden=true; });
+  document.querySelectorAll('#importCard,#manualCard,#transferCard,#movCard,#sSave').forEach(el=>{ if(!canWrite && db) el.hidden=true; });
   $('roNote').hidden = !(db && !canWrite);
 }
 
@@ -677,6 +678,26 @@ $('mSave').addEventListener('click',async()=>{
   else if (ex && typeof ex.start==='number') doc.start=ex.start;
   try{ await db.collection('days').doc(a+'_'+date).set(doc); showMsg(msg,`Guardado ${shortDate(date)}: ${smoney(pnl)}.`,'ok'); shot=null; showMsg($('shotMsg'),''); $('mPnl').value=''; $('mFlow').value=''; $('mNote').value=''; }
   catch(e){ showMsg(msg,'No se pudo guardar. Inténtalo de nuevo.','err'); }
+});
+$('tDate').value=todayStr();
+$('tSave').addEventListener('click',async()=>{
+  const from=$('tFrom').value, to=$('tTo').value, date=$('tDate').value, amt=Math.round((parseFloat($('tAmt').value)||0)*100)/100, msg=$('tMsg');
+  if(!from||!to||from===to){ showMsg(msg,'Elige dos cuentas distintas.','err'); return; }
+  if(!(amt>0)||!date){ showMsg(msg,'Escribe un importe y la fecha.','err'); return; }
+  const imported=[from,to].filter(a=>{ const d=days.find(x=>x.acc===a&&x.date===date); return d && d.src!=='manual'; });
+  if(imported.length){ showMsg(msg,`Ese día de ${imported.map(accName).join(' y ')} ya viene de MT5/Myfxbook, que ya incluye la transferencia. No hace falta añadirla.`,'err'); return; }
+  const apply=async(a,v,label)=>{
+    const ex=days.find(x=>x.acc===a&&x.date===date);
+    const flows=[...((ex&&ex.flows)||[]), {t:'',a:v,c:label}];
+    const doc = ex ? {...ex, flow:(+ex.flow||0)+v, flows}
+      : {acc:a,date,pnl:0,flow:v,n:0,wins:0,losses:0,trades:[],flows,src:'manual',note:'Transferencia'};
+    await db.collection('days').doc(a+'_'+date).set(doc);
+  };
+  try{
+    await apply(from,-amt,'Transferencia a '+accName(to));
+    await apply(to,amt,'Transferencia desde '+accName(from));
+    showMsg(msg,`Transferidos ${money(amt)} de ${accName(from)} a ${accName(to)} el ${shortDate(date)}.`,'ok'); $('tAmt').value='';
+  }catch(e){ showMsg(msg,'No se pudo guardar. Inténtalo de nuevo.','err'); }
 });
 $('eTarget').addEventListener('change',updateKinds);
 $('sCommAcc').addEventListener('change',()=>{ $('sCommWrap').hidden = $('sCommAcc').value!=='none'; });

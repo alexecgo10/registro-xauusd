@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -79,6 +79,18 @@
       <div id="mMsg" class="msg" hidden></div>
     </div>
 
+
+    <div class="card stack" id="transferCard">
+      <div><div class="eyebrow">Entre tus cuentas</div><h2>Transferir</h2></div>
+      <div class="grid2">
+        <label class="f">De<select id="tFrom"></select></label>
+        <label class="f">A<select id="tTo"></select></label>
+        <label class="f">Importe ($)<input type="number" step="0.01" min="0" id="tAmt" inputmode="decimal" placeholder="0,00"></label>
+        <label class="f">Fecha<input type="date" id="tDate"></label>
+      </div>
+      <div class="row"><span class="hint">Retiro en una y depósito en la otra: no cuenta como ganancia ni pérdida.</span><button class="btn" id="tSave">Transferir</button></div>
+      <div id="tMsg" class="msg" hidden></div>
+    </div>
 
     <div class="card stack" id="backupCard">
       <div><div class="eyebrow">Tu cuenta</div><h2>Copia de seguridad</h2></div>
