@@ -12,10 +12,22 @@ data class Quote(val bid: Double, val ask: Double, val ts: Long) {
     val closed get() = System.currentTimeMillis() - ts > 10 * 60_000L
 }
 
+/** Tus dos cuentas: "P" (Principal ·4318) y "S" (Secundaria ·2198). */
+object Accounts {
+    fun of(number: String, name: String): String = when {
+        number.endsWith("4318") -> "P"
+        number.endsWith("2198") -> "S"
+        else -> name
+    }
+    fun label(k: String) = when (k) { "P", "Manual" -> "Principal"; "S" -> "Secundaria"; else -> k }
+}
+
 /** Operación abierta (de Myfxbook o añadida a mano). Importes en dólares. */
 data class Trade(val acc: String, val sym: String, val buy: Boolean, val lots: Double, val open: Double,
                  val profit: Double, val k: Double, val key: String = "", val manual: Boolean = false, val edited: Boolean = false) {
     val gold get() = sym.contains("XAU", true)
+    /** Cuenta a la que pertenece ("P", "S"…). Las antiguas manuales sin cuenta van a la Principal. */
+    val page get() = if (acc == "Manual") "P" else acc
     /** Beneficio en directo con el precio actual (sin swap). */
     fun live(q: Quote?): Double =
         if (q == null || !gold) profit
@@ -89,7 +101,8 @@ object Market {
         if (st.mfxOn || st.manualTrades().isNotEmpty()) {
             val f = trades.sumOf { it.live(q) }
             val byAcc = trades.groupBy { it.acc }
-            if (byAcc.size > 1) st.mfxDetail = byAcc.entries.joinToString("\n") { (a, l) -> "• $a: ${Notifier.money(l.sumOf { it.live(q) })}" }
+            val byPage = trades.groupBy { it.page }
+            if (byPage.size > 1) st.mfxDetail = byPage.entries.joinToString("\n") { (a, l) -> "• ${Accounts.label(a)}: ${Notifier.money(l.sumOf { it.live(q) })}" }
             st.setFloating(f, st.floatingUpdated)
 
             // Alarma por flotante: suena una vez al cruzar el límite; se rearma al recuperarse.

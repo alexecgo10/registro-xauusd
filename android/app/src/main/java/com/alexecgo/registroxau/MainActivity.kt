@@ -122,6 +122,27 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupSignal() {
         findViewById<Button>(R.id.btnAddTrade).setOnClickListener { tradeDialog(null) }
+        findViewById<Button>(R.id.btnCapTrade).setOnClickListener { pickShot.launch("image/*") }
+        findViewById<TextView>(R.id.tabP).setOnClickListener { setTradePage("P") }
+        findViewById<TextView>(R.id.tabS).setOnClickListener { setTradePage("S") }
+        findViewById<TextView>(R.id.tabA).setOnClickListener { setTradePage("A") }
+        findViewById<TextView>(R.id.txtCapture).setOnClickListener { revertCapture() }
+        // Deslizar a izquierda/derecha sobre la tarjeta cambia de cuenta.
+        val pages = listOf("P", "S", "A")
+        val gd = android.view.GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: android.view.MotionEvent) = true
+            override fun onFling(e1: android.view.MotionEvent?, e2: android.view.MotionEvent, vx: Float, vy: Float): Boolean {
+                val dx = e2.x - (e1?.x ?: e2.x); val dy = e2.y - (e1?.y ?: e2.y)
+                if (kotlin.math.abs(dx) < 120 || kotlin.math.abs(dx) < kotlin.math.abs(dy) * 1.5f) return false
+                val i = pages.indexOf(tradePage)
+                setTradePage(pages[(i + (if (dx < 0) 1 else -1)).coerceIn(0, 2)])
+                return true
+            }
+        })
+        val swipeOn = View.OnTouchListener { _, ev -> gd.onTouchEvent(ev); false }
+        findViewById<View>(R.id.cardTrades).setOnTouchListener(swipeOn)
+        findViewById<View>(R.id.boxTrades).setOnTouchListener(swipeOn)
+        findViewById<View>(R.id.tradeTabs).setOnTouchListener(swipeOn)
         findViewById<Button>(R.id.btnClose).setOnClickListener {
             sendBroadcast(Intent(this, ActionReceiver::class.java).setAction(ActionReceiver.ACTION_CLOSE))
         }
@@ -489,7 +510,7 @@ class MainActivity : AppCompatActivity() {
             store.prefs.getString("manualTrades", ""), store.prefs.getString("orders", ""), store.tradeHidden,
             store.tradeEdits.toString(), store.ordOff, store.ordAlarm, store.ordFired, store.newsJson.length, store.newsAt,
             System.currentTimeMillis() / 60_000, s, signalOpen, store.mfxStale(), store.mfxOn, store.schedFrom, store.schedTo,
-            store.newsOn, store.newsMedium, store.newsBefore).hashCode().toString()
+            store.newsOn, store.newsMedium, store.newsBefore, tradePage, store.capOverride, store.capTime).hashCode().toString()
         if (sig == lastSignalSig) return
         lastSignalSig = sig
 
@@ -649,13 +670,31 @@ class MainActivity : AppCompatActivity() {
                 (it.layoutParams as LinearLayout.LayoutParams).weight = 0.45f; it.textSize = 16f; it.setTextColor(C_INK2) })
             return r
         }
-        if (trades.isEmpty()) tb.addView(tableRow(listOf("Sin operaciones abiertas" to C_INK2), floatArrayOf(1f)))
+        // Pestañas Principal / Secundaria / Ambas
+        listOf(R.id.tabP to "P", R.id.tabS to "S", R.id.tabA to "A").forEach { (id, k) ->
+            val tv = findViewById<TextView>(id)
+            val on = tradePage == k
+            tv.setTextColor(if (on) ContextCompat.getColor(this, R.color.gold) else C_INK2)
+            tv.typeface = if (on) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            tv.background = if (on) android.graphics.drawable.GradientDrawable().apply {
+                setColor(0x22D7AC57); cornerRadius = 40f } else null
+        }
+        val pageTrades = if (tradePage == "A") trades else trades.filter { it.page == tradePage }
+        val capNote = findViewById<TextView>(R.id.txtCapture)
+        if (tradePage != "A" && tradePage in store.capOverride) {
+            capNote.visibility = View.VISIBLE
+            capNote.text = "📷 Desde captura · " + java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault()).format(java.util.Date(store.capTime)) + "   ·   Volver a Myfxbook"
+        } else capNote.visibility = View.GONE
+        findViewById<View>(R.id.btnCapTrade).visibility = if (tradePage == "A") View.GONE else View.VISIBLE
+
+        if (pageTrades.isEmpty()) tb.addView(tableRow(listOf("Sin operaciones abiertas" to C_INK2), floatArrayOf(1f)))
         else {
             tb.addView(withActions(tableRow(listOf("Tipo" to C_INK2, "Lotes" to C_INK2, "Entrada" to C_INK2, "Beneficio" to C_INK2), tw), null))
             var total = 0.0
-            trades.sortedBy { it.open }.forEach { t ->
+            pageTrades.sortedBy { it.open }.forEach { t ->
                 val p = t.live(q); total += p
-                val mark = if (t.manual) " ✋" else if (t.edited) " ✎" else ""
+                val mark = (if (t.key.startsWith("c|")) " 📷" else if (t.manual) " ✋" else if (t.edited) " ✎" else "") +
+                    (if (tradePage == "A") " ·" + (if (t.page == "S") "S" else "P") else "")
                 tb.addView(withActions(tableRow(listOf(
                     ((if (t.buy) "BUY" else "SELL") + mark) to (if (t.buy) C_BUY else C_SELL),
                     Market.fmtLots(t.lots) to C_INK,
@@ -693,6 +732,59 @@ class MainActivity : AppCompatActivity() {
                 ob.addView(row)
             }
         }
+    }
+
+    // ---------- Cuentas y capturas ----------
+    private var tradePage = "P"
+
+    private fun setTradePage(k: String) {
+        if (k == tradePage) return
+        tradePage = k; lastSignalSig = ""; refresh()
+    }
+
+    private val pickShot = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val acc = tradePage
+        toast("Leyendo la captura…")
+        TradeShot.read(this, uri) { rows, err ->
+            if (rows == null) { toast(err ?: "No se pudo leer"); return@read }
+            if (rows.isEmpty()) {
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("No encuentro operaciones")
+                    .setMessage("Usa una captura de la pestaña «Operaciones» de MT5 donde se vean las posiciones abiertas (símbolo, buy/sell, lotes y precio).")
+                    .setPositiveButton("Vale", null).show()
+                return@read
+            }
+            val list = rows.joinToString("\n") { "${if (it.buy) "BUY " else "SELL"}  ${Market.fmtLots(it.lots)}  ·  ${Market.fmtPrice(it.open)}" }
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("${rows.size} operación${if (rows.size > 1) "es" else ""} en ${Accounts.label(acc)}")
+                .setMessage("$list\n\nSustituirán a las operaciones de ${Accounts.label(acc)} (las de Myfxbook de esta cuenta se ocultan).")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Usar") { _, _ ->
+                    val k = store.rawTrades().firstOrNull()?.k ?: 0.01
+                    val now = System.currentTimeMillis()
+                    val keep = store.manualTrades().filter { it.page != acc }
+                    store.saveManual(keep + rows.mapIndexed { i, r ->
+                        Trade(acc, r.sym, r.buy, r.lots, r.open, 0.0, k, key = "c|$now|$i", manual = true)
+                    })
+                    store.capOverride = store.capOverride + acc
+                    store.capTime = now
+                    afterTradeChange()
+                }.show()
+        }
+    }
+
+    private fun revertCapture() {
+        val acc = tradePage
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Volver a Myfxbook")
+            .setMessage("Se quitan las operaciones de la captura de ${Accounts.label(acc)} y vuelven a mostrarse las de Myfxbook.")
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Volver") { _, _ ->
+                store.saveManual(store.manualTrades().filter { !(it.page == acc && it.key.startsWith("c|")) })
+                store.capOverride = store.capOverride - acc
+                afterTradeChange()
+            }.show()
     }
 
     // ---------- Añadir / editar / quitar operaciones ----------
@@ -786,7 +878,7 @@ class MainActivity : AppCompatActivity() {
         (t?.open ?: current())?.let { setPrice(it) }
 
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setTitle(if (t == null) "Añadir operación" else "Editar operación")
+            .setTitle(if (t == null) "Añadir a ${Accounts.label(if (tradePage == "S") "S" else "P")}" else "Editar operación")
             .setView(root)
             .setNegativeButton("Cancelar", null)
             .setPositiveButton("Guardar") { _, _ ->
@@ -796,7 +888,7 @@ class MainActivity : AppCompatActivity() {
                 when {
                     t == null -> {
                         val k = store.rawTrades().firstOrNull()?.k ?: 0.01   // tus cuentas son en céntimos
-                        store.saveManual(store.manualTrades() + Trade("Manual", "XAUUSD", buy, l, p, 0.0, k,
+                        store.saveManual(store.manualTrades() + Trade(if (tradePage == "S") "S" else "P", "XAUUSD", buy, l, p, 0.0, k,
                             key = "m|" + System.currentTimeMillis(), manual = true))
                         store.lastManualLots = l
                     }

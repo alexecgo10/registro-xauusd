@@ -52,4 +52,6 @@ dependencies {
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("androidx.activity:activity-ktx:1.9.2")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    // Leer capturas de MT5 en el propio móvil (sin enviar la imagen a ningún sitio).
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }

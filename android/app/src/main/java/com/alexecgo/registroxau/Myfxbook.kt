@@ -78,7 +78,7 @@ object Myfxbook {
             val arr = r.optJSONArray("openTrades") ?: JSONArray()
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
-                Trade(acc.name, o.optString("symbol"), o.optString("action").startsWith("Buy", true),
+                Trade(Accounts.of(acc.number, acc.name), o.optString("symbol"), o.optString("action").startsWith("Buy", true),
                     lotsOf(o), o.optDouble("openPrice"), o.optDouble("profit", 0.0) * acc.k, acc.k,
                     key = "${acc.id}|${o.optString("action")}|${o.optDouble("openPrice")}|${o.optString("openTime")}")
             }

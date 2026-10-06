@@ -192,11 +192,20 @@ class SignalStore(context: Context) {
     /** Operaciones que se muestran: Myfxbook (sin las ocultas, con tus correcciones) + las añadidas a mano. */
     fun trades(): List<Trade> {
         val hidden = tradeHidden; val ed = tradeEdits
-        val fromMfx = rawTrades().filter { it.key !in hidden }.map { t ->
+        val cap = capOverride
+        val fromMfx = rawTrades().filter { it.key !in hidden && it.page !in cap }.map { t ->
             ed.optJSONObject(t.key)?.let { o -> t.copy(lots = o.optDouble("lots", t.lots), open = o.optDouble("open", t.open), edited = true) } ?: t
         }
         return fromMfx + manualTrades()
     }
+
+    /** Cuentas cuyas operaciones vienen de una captura (se ocultan las de Myfxbook de esa cuenta). */
+    var capOverride: Set<String>
+        get() = prefs.getStringSet("capOverride", emptySet())!!.toSet()
+        set(v) = prefs.edit().putStringSet("capOverride", HashSet(v)).apply()
+    var capTime: Long
+        get() = prefs.getLong("capTime", 0L)
+        set(v) = prefs.edit().putLong("capTime", v).apply()
 
     var tradeHidden: Set<String>
         get() = prefs.getStringSet("tradeHidden", emptySet())!!.toSet()
