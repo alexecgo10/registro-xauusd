@@ -13,6 +13,8 @@ android {
         targetSdk = 34
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "1.0." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
+        // Solo procesadores de 64 bits ARM (todos los móviles actuales, incluido el POCO X7 Pro).
+        ndk { abiFilters += listOf("arm64-v8a") }
     }
 
     signingConfigs {
@@ -53,5 +55,6 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.2")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     // Leer capturas de MT5 en el propio móvil (sin enviar la imagen a ningún sitio).
-    implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Versión de Google Play Services: el modelo no va dentro de la APK (la APK pesa ~40 MB menos).
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
 }

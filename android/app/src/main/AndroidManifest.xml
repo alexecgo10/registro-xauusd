@@ -62,6 +62,11 @@
             </intent-filter>
         </service>
 
+        <!-- Descarga el modelo de lectura de texto al instalar (Google Play Services). -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
+
         <service
             android:name=".KeepAliveService"
             android:exported="false"
