@@ -400,6 +400,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         started = true
+        KeepAliveService.start(this)
         // Tras actualizar la app, Android a veces no vuelve a conectar el lector de notificaciones: se lo pedimos.
         if (SignalListenerService.instance == null &&
             NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)) {
@@ -523,6 +524,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun powerOff() {
         store.paused = true
+        KeepAliveService.stop(this)
         Alarm.stop(this)
         Myfxbook.stop()
         Notifier.showOngoing(this)   // con la app apagada, quita las notificaciones fijas

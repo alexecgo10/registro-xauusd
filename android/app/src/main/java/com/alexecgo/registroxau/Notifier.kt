@@ -92,6 +92,9 @@ object Notifier {
     }
 
     private val lastPosted = HashMap<Int, String>()
+    private var alertSeq = 0
+    /** Cada aviso en su propia notificación (2000…2019), así uno no tapa al anterior. */
+    private fun nextAlertId(): Int { alertSeq = (alertSeq + 1) % 20; return 2000 + alertSeq }
 
     /** Publica solo si ha cambiado algo (evita trabajo inútil de la barra de notificaciones). */
     private fun post(ctx: Context, id: Int, n: android.app.Notification, sig: String) {
@@ -269,7 +272,7 @@ object Notifier {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(openApp(ctx))
                 .build()
-            try { NotificationManagerCompat.from(ctx).notify(ALERT_ID, n) } catch (e: SecurityException) { }
+            try { NotificationManagerCompat.from(ctx).notify(nextAlertId(), n) } catch (e: SecurityException) { }
         }
         if (store.soundOn) playSound(ctx)
     }

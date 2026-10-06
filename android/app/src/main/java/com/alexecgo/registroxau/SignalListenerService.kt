@@ -15,6 +15,7 @@ class SignalListenerService : NotificationListenerService() {
         super.onListenerConnected()
         if (SignalStore(this).paused) { requestUnbind(); return }
         instance = this
+        KeepAliveService.start(this)
         Notifier.showOngoing(this)
         Myfxbook.start(this) // flotante de Myfxbook (si está activado)
     }
