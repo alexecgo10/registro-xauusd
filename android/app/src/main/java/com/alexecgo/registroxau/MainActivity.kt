@@ -149,9 +149,8 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- Ajustes ----------
     private fun setupSettings() {
-        findViewById<Button>(R.id.btnAccess).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
+        findViewById<Button>(R.id.btnAccess).setOnClickListener { openListenerSettings() }
+        findViewById<TextView>(R.id.txtAccess).setOnClickListener { openListenerSettings() }
         findViewById<Button>(R.id.btnNotifPerm).setOnClickListener {
             if (Build.VERSION.SDK_INT >= 33) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7)
@@ -462,6 +461,9 @@ class MainActivity : AppCompatActivity() {
             else getSystemService(android.app.NotificationManager::class.java).canUseFullScreenIntent()
 
         row(R.id.txtAccess, R.id.btnAccess, listenerOn, "Acceso a notificaciones")
+        findViewById<Button>(R.id.btnAccess).visibility = View.VISIBLE
+        findViewById<Button>(R.id.btnAccess).text =
+            if (listenerOn) "Reconectar (desactivar y activar)" else "Dar acceso a notificaciones"
         row(R.id.txtNotif, R.id.btnNotifPerm, notifOn, "Notificaciones")
         row(R.id.txtBattery, R.id.btnBattery, batteryOk, "Batería sin restricciones")
         row(R.id.txtLive, R.id.btnLive, canPostPromoted(), "Actualizaciones en directo (isla)")
@@ -825,6 +827,17 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
         } catch (e: Exception) {
             startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        }
+    }
+
+    /** Abre directamente el interruptor de acceso a notificaciones de esta app (Android 11+). */
+    private fun openListenerSettings() {
+        try {
+            startActivity(Intent("android.settings.NOTIFICATION_LISTENER_DETAIL_SETTINGS")
+                .putExtra("android.provider.extra.NOTIFICATION_LISTENER_COMPONENT_NAME",
+                    android.content.ComponentName(this, SignalListenerService::class.java).flattenToString()))
+        } catch (e: Exception) {
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
     }
 
