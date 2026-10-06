@@ -102,6 +102,7 @@ class SignalListenerService : NotificationListenerService() {
                 is SignalEvent.Open -> Notifier.alert(ctx, "Nueva señal: ${ev.side} ${ev.price}", "LIFT.SIGNALS")
                 is SignalEvent.Average -> Notifier.alert(ctx, "Promedio ${ev.price}", s?.let { Notifier.title(it) } ?: "")
                 is SignalEvent.CloseAverage -> Notifier.alert(ctx, "Cerrado promedio ${ev.price}", s?.let { Notifier.title(it) } ?: "")
+                SignalEvent.CloseAllAverages -> Notifier.alert(ctx, "Cerrados todos los promedios", s?.let { Notifier.title(it) } ?: "")
                 SignalEvent.CloseAll -> Notifier.alert(ctx, "✅ Señal cerrada", "LIFT.SIGNALS: cerramos todo")
             }
             ctx.sendBroadcast(android.content.Intent(ACTION_CHANGED).setPackage(ctx.packageName))

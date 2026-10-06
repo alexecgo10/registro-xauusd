@@ -270,6 +270,11 @@ class SignalStore(context: Context) {
                 saveState(cur.copy(averages = cur.averages - ev.price))
                 log("Cerrado promedio ${ev.price}")
             }
+            SignalEvent.CloseAllAverages -> {
+                if (cur == null || cur.averages.isEmpty()) { log("Cerrados todos los promedios"); return false }
+                saveState(cur.copy(averages = emptyList()))
+                log("Cerrados todos los promedios")
+            }
             SignalEvent.CloseAll -> {
                 if (cur == null) return false
                 saveState(null)

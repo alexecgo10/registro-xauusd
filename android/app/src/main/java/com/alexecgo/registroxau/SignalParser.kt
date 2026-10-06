@@ -6,14 +6,18 @@ sealed class SignalEvent {
     data class Average(val price: String) : SignalEvent()
     data class CloseAverage(val price: String) : SignalEvent()
     object CloseAll : SignalEvent()
+    object CloseAllAverages : SignalEvent()
 }
 
 object SignalParser {
     private const val PRICE = "(\\d{3,6}(?:[.,]\\d+)?)"
 
-    private val closeAll = Regex("(?i)\\bcerramos\\s+todo")
+    // "Cerramos todo" (señal entera) — pero no "Cerramos todos los promedios".
+    private val closeAll = Regex("(?i)\\bcerramos\\s+todo\\b(?!s)")
+    private val closeAllAverages = Regex("(?i)\\bcerramos\\s+todos?\\s+(?:los\\s+)?promedios")
     private val closeAverage = Regex("(?i)cerramos\\s+el\\s+promedio\\D*?$PRICE")
-    private val average = Regex("(?i)^\\s*promedios?\\s+$PRICE")
+    // "Promedio 4133", "Primer promedio 4155", "2º promedio en 4120", "Segundo promedio: 4100"…
+    private val average = Regex("(?im)^\\s*(?:\\S+\\s+)?promedios?\\s*(?:en|a|:|-)?\\s*$PRICE")
     // Al principio de una línea, o citado (p. ej. "LIFT.SIGNALS fijó “XAUUSD BUY 4156…”").
     private val open = Regex("(?im)(?:^|[“\"«'])\\s*XAUUSD\\s+(BUY|SELL)\\s+$PRICE")
 
@@ -21,6 +25,7 @@ object SignalParser {
     fun parse(text: String?): SignalEvent? {
         val t = text?.trim().orEmpty()
         if (t.isEmpty()) return null
+        if (closeAllAverages.containsMatchIn(t)) return SignalEvent.CloseAllAverages
         if (closeAll.containsMatchIn(t)) return SignalEvent.CloseAll
         closeAverage.find(t)?.let { return SignalEvent.CloseAverage(norm(it.groupValues[1])) }
         average.find(t)?.let { return SignalEvent.Average(norm(it.groupValues[1])) }
