@@ -17,7 +17,7 @@ object SignalParser {
     private val closeAllAverages = Regex("(?i)\\bcerramos\\s+todos?\\s+(?:los\\s+)?promedios")
     private val closeAverage = Regex("(?i)cerramos\\s+el\\s+promedio\\D*?$PRICE")
     // "Promedio 4133", "Primer promedio 4155", "2º promedio en 4120", "Segundo promedio: 4100"…
-    private val average = Regex("(?im)^\\s*(?:\\S+\\s+)?promedios?\\s*(?:en|a|:|-)?\\s*$PRICE")
+    private val average = Regex("(?im)^\\s*(?:\\S+\\s+){0,5}promedios?\\s*(?:en|a|:|-)?\\s*$PRICE")
     // Al principio de una línea, o citado (p. ej. "LIFT.SIGNALS fijó “XAUUSD BUY 4156…”").
     private val open = Regex("(?im)(?:^|[“\"«'])\\s*XAUUSD\\s+(BUY|SELL)\\s+$PRICE")
 
