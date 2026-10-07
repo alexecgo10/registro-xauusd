@@ -670,7 +670,15 @@ $('mSave').addEventListener('click',async()=>{
   if(!a||!date){ showMsg(msg,'Elige cuenta y fecha.','err'); return; }
   const pnl=parseFloat($('mPnl').value)||0, flow=parseFloat($('mFlow').value)||0;
   const ex=days.find(d=>d.acc===a&&d.date===date);
-  if (ex && ex.src!=='manual'){ showMsg(msg,'Ese día ya viene importado (MT5 o Myfxbook). Para añadir una nota, ábrelo en el calendario.','err'); return; }
+  // Día que venía del informe: se puede sustituir (p. ej. si seguiste operando después de exportarlo), con doble pulsación.
+  const btn=$('mSave'), armKey=a+'_'+date;
+  if (ex && ex.src!=='manual' && btn.dataset.armed!==armKey){
+    btn.dataset.armed=armKey; btn.textContent='Pulsa otra vez para sustituir';
+    showMsg(msg,`Ese día ya venía del informe (${smoney(+ex.pnl||0)}). Si has seguido operando después, pulsa otra vez y se guardarán estos datos en su lugar.`,'err');
+    setTimeout(()=>{ if(btn.dataset.armed===armKey){ btn.dataset.armed=''; btn.textContent='Guardar día'; } },10000);
+    return;
+  }
+  btn.dataset.armed=''; btn.textContent='Guardar día';
   const doc={acc:a,date,pnl,flow,n:0,wins:0,losses:0,trades:[],flows:flow?[{t:'',a:flow,c:flow>0?'Depósito':'Retiro'}]:[],src:'manual',note:$('mNote').value.trim()};
   // Si los datos vienen de una captura y no se han tocado, guarda también el nº de operaciones.
   if (shot && shot.date===date && Math.abs(shot.pnl-pnl)<0.005){ doc.n=shot.n; doc.wins=shot.wins; doc.losses=shot.losses; doc.via='captura'; }
