@@ -73,7 +73,7 @@ let view = 'cal';
 let monthKey = null;    // 'YYYY-MM'
 let chartMode = 'bal';
 let copSel = 'comm', copMonth = null;
-let xPer = 'all', xMonth = null, xCustom = null, xDays = localGet('xDays')||'traded';
+let xPer = 'all', xMonth = null, xCustom = null, xDays = 'weekdays';
 
 /* ---------- utils ---------- */
 function localGet(k){ try { return localStorage.getItem('xau.'+k); } catch(e){ return null; } }
@@ -312,7 +312,6 @@ function renderExp(S){
   $('xRate').innerHTML = `<span>${spct(P.r)}</span>`;
   $('xRateSub').textContent = xPer==='custom' ? `Usando tu % · media real de todo el historial ${spct(avgRate(S,0).geo)}` : `Media de ${perName}: ${P.A.n} días ${xDays==='weekdays'?'de lunes a viernes':'operados'} · ${smoney(P.A.usd)} por día`;
   document.querySelectorAll('#xPer button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.p===xPer));
-  document.querySelectorAll('#xDays button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.d===xDays));
   $('xCustomWrap').hidden = xPer!=='custom';
   if (!xMonth) xMonth = todayStr().slice(0,7);
   const [y,m]=xMonth.split('-').map(Number); $('xTitle').textContent=MES[m-1]+' '+y;
@@ -626,7 +625,6 @@ document.querySelector('nav.tabs').addEventListener('click',e=>{ const b=e.targe
   ['cal','reg','cop','res','exp'].forEach(v=>$('v-'+v).hidden = v!==view); window.scrollTo(0,0); render(); });
 $('mPrev').addEventListener('click',()=>{ const d=pd(monthKey+'-01'); d.setUTCMonth(d.getUTCMonth()-1); monthKey=fd(d).slice(0,7); render(); });
 $('mNext').addEventListener('click',()=>{ const d=pd(monthKey+'-01'); d.setUTCMonth(d.getUTCMonth()+1); monthKey=fd(d).slice(0,7); render(); });
-$('xDays').addEventListener('click',e=>{ const b=e.target.closest('[data-d]'); if(!b) return; xDays=b.dataset.d; localSet('xDays',xDays); render(); });
 $('xPer').addEventListener('click',e=>{ const b=e.target.closest('[data-p]'); if(!b) return; xPer=b.dataset.p; if(xPer==='custom' && xCustom==null){ xCustom=+(avgRate(series(sel),0).geo*100).toFixed(2); $('xCustom').value=xCustom; } render(); });
 $('xCustom').addEventListener('input',()=>{ const v=parseFloat($('xCustom').value); if(!isNaN(v)){ xCustom=v; render(); } });
 $('xPrev').addEventListener('click',()=>{ const d=pd(xMonth+'-01'); d.setUTCMonth(d.getUTCMonth()-1); xMonth=fd(d).slice(0,7); render(); });
