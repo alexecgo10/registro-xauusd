@@ -1,6 +1,6 @@
 // Service worker: permite instalar la app y abrirla sin conexión.
 // Los datos los guarda Firestore en el propio móvil; aquí solo se cachean los archivos de la app.
-const VERSION = 'v8';
+const VERSION = 'v9';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'shot.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 const CDN = ['www.gstatic.com', 'cdnjs.cloudflare.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 

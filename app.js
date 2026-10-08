@@ -73,7 +73,7 @@ let view = 'cal';
 let monthKey = null;    // 'YYYY-MM'
 let chartMode = 'bal';
 let copSel = 'comm', copMonth = null;
-let xPer = 'all', xMonth = null, xCustom = null;
+let xPer = 'all', xMonth = null, xCustom = null, xDays = localGet('xDays')||'traded';
 
 /* ---------- utils ---------- */
 function localGet(k){ try { return localStorage.getItem('xau.'+k); } catch(e){ return null; } }
@@ -119,10 +119,12 @@ function computeAcc(a){
     return {...d, pnl, flow, start, end, accs:[a]};
   });
 }
+/** % del día sobre el capital realmente operado: si ese día hubo retiros, no cuentan como capital. */
+function dayPct(r){ const base=(+r.start||0)+Math.min(+r.flow||0,0); return base>0? r.pnl/base : 0; }
 function series(selAcc){
   const accs = selAcc==='all' ? accountIds() : [selAcc];
   const per = accs.map(a=>({a, rows:computeAcc(a)}));
-  if (per.length===1) return per[0].rows.map(r=>({...r, pct: r.start>0? r.pnl/r.start : 0, parts:[r]}));
+  if (per.length===1) return per[0].rows.map(r=>({...r, pct: dayPct(r), parts:[r]}));
   const maps = per.map(p=>({a:p.a, m:new Map(p.rows.map(r=>[r.date,r]))}));
   const dates = [...new Set(per.flatMap(p=>p.rows.map(r=>r.date)))].sort();
   const last = {};
@@ -133,7 +135,7 @@ function series(selAcc){
       if (r){ pnl+=r.pnl; flow+=r.flow; start+=r.start; end+=r.end; n+=r.n||0; wins+=r.wins||0; losses+=r.losses||0; last[a]=r.end; parts.push(r); }
       else if (last[a]!=null){ start+=last[a]; end+=last[a]; }
     });
-    return {date,pnl,flow,start,end,n,wins,losses,parts,pct:start>0?pnl/start:0};
+    return {date,pnl,flow,start,end,n,wins,losses,parts,pct:dayPct({pnl,flow,start})};
   });
 }
 function stats(S){
@@ -277,10 +279,17 @@ function openCopDay(date){
 function avgRate(S, days){
   const last=S.length? S[S.length-1].date : todayStr();
   let cut='0000-00-00'; if (days){ const d=pd(last); d.setUTCDate(d.getUTCDate()-days); cut=fd(d); }
-  const act=S.filter(x=>x.date>cut && x.start>0 && ((x.n||0)>0 || x.pnl!==0));
-  if (!act.length) return {geo:0, arith:0, usd:0, n:0};
-  const prod=act.reduce((a,x)=>a*(1+x.pnl/x.start),1);
-  return {geo:Math.pow(prod,1/act.length)-1, arith:act.reduce((a,x)=>a+x.pnl/x.start,0)/act.length, usd:act.reduce((a,x)=>a+x.pnl,0)/act.length, n:act.length};
+  const inRange=S.filter(x=>x.date>cut && x.start>0);
+  let act=inRange.filter(x=>(x.n||0)>0 || x.pnl!==0);
+  let pcts=act.map(x=>x.pct);
+  if (xDays==='weekdays' && inRange.length){
+    // Cuenta también los días de lunes a viernes sin operar (0 %), desde el primer día del periodo.
+    const have=new Set(act.map(x=>x.date)); const d=pd(inRange[0].date), end=pd(last);
+    for(; d<=end; d.setUTCDate(d.getUTCDate()+1)){ const ds=fd(d); if(isWeekday(ds) && !have.has(ds)) pcts.push(0); }
+  }
+  if (!pcts.length) return {geo:0, arith:0, usd:0, n:0};
+  const prod=pcts.reduce((a,p)=>a*(1+p),1);
+  return {geo:Math.pow(prod,1/pcts.length)-1, arith:pcts.reduce((a,p)=>a+p,0)/pcts.length, usd:act.reduce((a,x)=>a+x.pnl,0)/pcts.length, n:pcts.length};
 }
 function isWeekday(ds){ const g=pd(ds).getUTCDay(); return g>=1 && g<=5; }
 function projector(S){
@@ -301,8 +310,9 @@ function renderExp(S){
   const P=projector(S);
   const perName={all:'todo el historial','90':'los últimos 3 meses','30':'el último mes',custom:'tu %'}[xPer];
   $('xRate').innerHTML = `<span>${spct(P.r)}</span>`;
-  $('xRateSub').textContent = xPer==='custom' ? `Usando tu % · media real de todo el historial ${spct(avgRate(S,0).geo)}` : `Media de ${perName}: ${P.A.n} días operados · ${smoney(P.A.usd)} por día`;
+  $('xRateSub').textContent = xPer==='custom' ? `Usando tu % · media real de todo el historial ${spct(avgRate(S,0).geo)}` : `Media de ${perName}: ${P.A.n} días ${xDays==='weekdays'?'de lunes a viernes':'operados'} · ${smoney(P.A.usd)} por día`;
   document.querySelectorAll('#xPer button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.p===xPer));
+  document.querySelectorAll('#xDays button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.d===xDays));
   $('xCustomWrap').hidden = xPer!=='custom';
   if (!xMonth) xMonth = todayStr().slice(0,7);
   const [y,m]=xMonth.split('-').map(Number); $('xTitle').textContent=MES[m-1]+' '+y;
@@ -616,6 +626,7 @@ document.querySelector('nav.tabs').addEventListener('click',e=>{ const b=e.targe
   ['cal','reg','cop','res','exp'].forEach(v=>$('v-'+v).hidden = v!==view); window.scrollTo(0,0); render(); });
 $('mPrev').addEventListener('click',()=>{ const d=pd(monthKey+'-01'); d.setUTCMonth(d.getUTCMonth()-1); monthKey=fd(d).slice(0,7); render(); });
 $('mNext').addEventListener('click',()=>{ const d=pd(monthKey+'-01'); d.setUTCMonth(d.getUTCMonth()+1); monthKey=fd(d).slice(0,7); render(); });
+$('xDays').addEventListener('click',e=>{ const b=e.target.closest('[data-d]'); if(!b) return; xDays=b.dataset.d; localSet('xDays',xDays); render(); });
 $('xPer').addEventListener('click',e=>{ const b=e.target.closest('[data-p]'); if(!b) return; xPer=b.dataset.p; if(xPer==='custom' && xCustom==null){ xCustom=+(avgRate(series(sel),0).geo*100).toFixed(2); $('xCustom').value=xCustom; } render(); });
 $('xCustom').addEventListener('input',()=>{ const v=parseFloat($('xCustom').value); if(!isNaN(v)){ xCustom=v; render(); } });
 $('xPrev').addEventListener('click',()=>{ const d=pd(xMonth+'-01'); d.setUTCMonth(d.getUTCMonth()-1); xMonth=fd(d).slice(0,7); render(); });
