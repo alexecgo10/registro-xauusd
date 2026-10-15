@@ -96,6 +96,12 @@ class SignalListenerService : NotificationListenerService() {
                 ctx.sendBroadcast(android.content.Intent(ACTION_CHANGED).setPackage(ctx.packageName))
                 return
             }
+            // Un promedio avisa siempre: aunque la señal se cerrara a mano o no se leyera la apertura.
+            if (!changed && ev is SignalEvent.Average && store.state() == null) {
+                Notifier.alert(ctx, "Promedio ${ev.price}", "LIFT.SIGNALS · sin señal abierta en la app")
+                ctx.sendBroadcast(android.content.Intent(ACTION_CHANGED).setPackage(ctx.packageName))
+                return
+            }
             if (!changed) return
             val s = store.state()
             when (ev) {
