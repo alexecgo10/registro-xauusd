@@ -13,9 +13,9 @@ object SignalParser {
     private const val PRICE = "(\\d{3,6}(?:[.,]\\d+)?)"
 
     // "Cerramos todo" (señal entera) — pero no "Cerramos todos los promedios".
-    private val closeAll = Regex("(?i)\\bcerramos\\s+todo\\b(?!s)")
+    private val closeAll = Regex("(?i)\\bcerramos\\s+(?:todo\\b(?!s)|(?:la\\s+)?se[ñn]al\\b)")
     private val closeAllAverages = Regex("(?i)\\bcerramos\\s+todos?\\s+(?:los\\s+)?promedios")
-    private val closeAverage = Regex("(?i)cerramos\\s+el\\s+promedio\\D*?$PRICE")
+    private val closeAverage = Regex("(?i)cerramos\\s+(?:el\\s+)?promedio\\D*?$PRICE")
     // "Promedio 4133", "Primer promedio 4155", "2º promedio en 4120", "Segundo promedio: 4100"…
     private val average = Regex("(?im)^\\s*(?:\\S+\\s+){0,5}promedios?\\s*(?:en|a|:|-)?\\s*$PRICE")
     // Al principio de una línea, o citado (p. ej. "LIFT.SIGNALS fijó “XAUUSD BUY 4156…”").
