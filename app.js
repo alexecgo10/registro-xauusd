@@ -458,7 +458,9 @@ function renderRes(S){
     `<div class="kpi hero"><div class="eyebrow">${sel==='all'?'Balance total':'Balance actual'}</div><div class="v num">${money(st.bal)}</div><div class="s">Desde ${shortDate(S[0].date)} · ${st.traded} días operados</div></div>`+
     k('Resultado total', smoney(st.total), 'Mov. netos '+smoney(st.flows), cls(st.total))+
     (()=>{ const F=flowSums(S); return k('Depósitos', smoney(F.dep), F.nd+' ingresos'+(F.comm? ' · comisiones '+smoney(F.comm):''), F.dep?'pos':'')+
-      k('Retiros', F.ret? smoney(F.ret) : money(0), F.nr+' retiros'+(sel==='all'?' · sin transferencias entre tus cuentas':''), F.ret?'neg':''); })()+
+      k('Retiros', F.ret? smoney(F.ret) : money(0), F.nr+' retiros'+(sel==='all'?' · sin transferencias entre tus cuentas':''), F.ret?'neg':'')+
+      (()=>{ const net=F.dep+F.ret+(S[0].start>0?S[0].start:0), over=st.bal-net;
+        return k('Depósitos − retiros', money(net), 'Tienes '+smoney(over)+(net>0?' ('+spct(over/net)+')':'')+' sobre lo aportado', cls(over)); })(); })()+
     k('% acumulado', spct(st.cum), 'Compuesto', cls(st.cum))+
     k('Drawdown máx.', spct(st.mdd), 'Actual '+spct(st.curDd), st.mdd<0?'neg':'')+
     k('Días en verde', st.traded? Math.round(st.g/st.traded*100)+' %':'—', `${st.g} verdes · ${st.r} rojos`)+
