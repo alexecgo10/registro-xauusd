@@ -157,8 +157,24 @@ function stats(S){
 function months(S){
   const m=new Map();
   S.forEach(x=>{ const k=x.date.slice(0,7); if(!m.has(k)) m.set(k,{k,pnl:0,idx:1,g:0,r:0,n:0}); const o=m.get(k);
-    o.pnl+=x.pnl; if(x.start>0)o.idx*=1+x.pnl/x.start; if(x.pnl>0)o.g++; else if(x.pnl<0)o.r++; if((x.n||0)>0||x.pnl!==0)o.n++; });
+    o.pnl+=x.pnl; const fi=flowItems(x, sel==='all'? new Set(accountIds().map(String)) : null); o.dep=(o.dep||0)+fi.filter(f=>f.a>0).reduce((t,f)=>t+f.a,0); o.ret=(o.ret||0)+fi.filter(f=>f.a<0).reduce((t,f)=>t+f.a,0); if(x.start>0)o.idx*=1+x.pnl/x.start; if(x.pnl>0)o.g++; else if(x.pnl<0)o.r++; if((x.n||0)>0||x.pnl!==0)o.n++; });
   return [...m.values()].map(o=>({...o,pct:o.idx-1}));
+}
+/** Depósitos y retiros de los días S. Con varias cuentas, las transferencias entre ellas no cuentan. */
+function flowItems(x, internal){
+  const out=[];
+  (x.parts||[x]).forEach(r=>{
+    const fl=Array.isArray(r.flows)&&r.flows.length? r.flows : (+r.flow? [{a:+r.flow,c:''}] : []);
+    fl.forEach(f=>{ const a=+f.a||0; if(!a) return; const m=String(f.c||'').match(/Transfer (?:In from|Out to) (\d+)/i);
+      if (internal && m && internal.has(m[1])) return; out.push({a, comm:/MTS-CTS/i.test(f.c||'')}); });
+  });
+  return out;
+}
+function flowSums(S){
+  const internal = sel==='all'? new Set(accountIds().map(String)) : null;
+  let dep=0, ret=0, comm=0, nd=0, nr=0;
+  S.forEach(x=>flowItems(x,internal).forEach(f=>{ if(f.a>0){ dep+=f.a; nd++; if(f.comm) comm+=f.a; } else { ret+=f.a; nr++; } }));
+  return {dep, ret, comm, nd, nr};
 }
 function flowLabel(c){ const m=String(c||'').match(/MTS-CTS\s*PM\s*(\d\d\/\d\d)\/\d\d-(\d\d\/\d\d)/i); if(m) return 'Comisión de referidos ('+m[1]+'–'+m[2]+')'; if(/MTS-CTS/i.test(c)) return 'Comisión de referidos';
   let t=String(c||''); t=t.replace(/^Transfer In from (\d+)/i,(x,a)=>'Transferencia desde '+accLabel(a)).replace(/^Transfer Out to (\d+)/i,(x,a)=>'Transferencia a '+accLabel(a)); return t; }
@@ -441,6 +457,8 @@ function renderRes(S){
   $('kpis').innerHTML = !S.length? '<div class="empty card" style="grid-column:1/-1"><strong>Sin datos todavía</strong>Importa tu informe en «Registro».</div>' :
     `<div class="kpi hero"><div class="eyebrow">${sel==='all'?'Balance total':'Balance actual'}</div><div class="v num">${money(st.bal)}</div><div class="s">Desde ${shortDate(S[0].date)} · ${st.traded} días operados</div></div>`+
     k('Resultado total', smoney(st.total), 'Mov. netos '+smoney(st.flows), cls(st.total))+
+    (()=>{ const F=flowSums(S); return k('Depósitos', smoney(F.dep), F.nd+' ingresos'+(F.comm? ' · comisiones '+smoney(F.comm):''), F.dep?'pos':'')+
+      k('Retiros', F.ret? smoney(F.ret) : money(0), F.nr+' retiros'+(sel==='all'?' · sin transferencias entre tus cuentas':''), F.ret?'neg':''); })()+
     k('% acumulado', spct(st.cum), 'Compuesto', cls(st.cum))+
     k('Drawdown máx.', spct(st.mdd), 'Actual '+spct(st.curDd), st.mdd<0?'neg':'')+
     k('Días en verde', st.traded? Math.round(st.g/st.traded*100)+' %':'—', `${st.g} verdes · ${st.r} rojos`)+
@@ -450,8 +468,8 @@ function renderRes(S){
     k('Operaciones', nf0.format(st.wins+st.losses), (st.wins+st.losses? Math.round(st.wins/(st.wins+st.losses)*100)+' % ganadoras':''));
   drawLine(st.curve);
   const M=months(S); drawBars(M);
-  $('monTbl').innerHTML = `<thead><tr><th>Mes</th><th>Resultado</th><th>%</th><th>Días +/−</th></tr></thead><tbody>`+
-    ([...M].reverse().map(o=>{const [yy,mm]=o.k.split('-'); return `<tr><td style="font-family:var(--f-display);text-transform:capitalize">${MES[+mm-1]} ${yy}</td><td class="${cls(o.pnl)}">${smoney(o.pnl)}</td><td class="${cls(o.pct)}">${spct(o.pct)}</td><td><span class="pos">${o.g}</span> / <span class="neg">${o.r}</span></td></tr>`}).join('')||'<tr><td colspan="4" class="mut">—</td></tr>')+'</tbody>';
+  $('monTbl').innerHTML = `<thead><tr><th>Mes</th><th>Resultado</th><th>%</th><th>Depósitos</th><th>Retiros</th><th>Días +/−</th></tr></thead><tbody>`+
+    ([...M].reverse().map(o=>{const [yy,mm]=o.k.split('-'); return `<tr><td style="font-family:var(--f-display);text-transform:capitalize">${MES[+mm-1]} ${yy}</td><td class="${cls(o.pnl)}">${smoney(o.pnl)}</td><td class="${cls(o.pct)}">${spct(o.pct)}</td><td class="${o.dep?'pos':'mut'}">${o.dep?smoney(o.dep):'—'}</td><td class="${o.ret?'neg':'mut'}">${o.ret?smoney(o.ret):'—'}</td><td><span class="pos">${o.g}</span> / <span class="neg">${o.r}</span></td></tr>`}).join('')||'<tr><td colspan="6" class="mut">—</td></tr>')+'</tbody>';
 }
 function niceTicks(min,max,n=4){
   if (min===max){ min-=1; max+=1; }
