@@ -186,15 +186,17 @@ function copyEngine(){
   const base = new Map(computeAcc(cfg.copyAcc).filter(r=>r.date>=start).map(r=>[r.date,r]));
   const ents = entries.filter(e=>e.date>=start);
   const dates=[...new Set([...base.keys(), ...ents.map(e=>e.date)])].sort();
-  const cps=(cfg.copiers||[]).map(c=>({...c, cap:+c.capital||0, gain:0, com:0, mov:0}));
+  const cps=(cfg.copiers||[]).map(c=>({...c, cap:+c.capital||0, gain:0, com:0, mov:0, cum:0, hwm:0}));
   let comm=+cfg.commInitial||0, commTot=0, own=0, commMov=0; const rows=[]; const commByMonth=new Map();
   dates.forEach(date=>{
     const b=base.get(date); const row={date, base:b?b.start:null, pnl:b?b.pnl:0, cp:[], com:0};
     cps.forEach(c=>{
       let g=0, cm=0;
-      if (b && b.start>0){ g=b.pnl*(c.cap/b.start)*(+c.mult||1); cm=g>0? g*pct : 0; }
+      if (b && b.start>0){ g=b.pnl*(c.cap/b.start)*(+c.mult||1);
+        // Marca de agua alta: solo se cobra lo que supere su máximo beneficio acumulado.
+        c.cum+=g; if (c.cum>c.hwm){ cm=(c.cum-c.hwm)*pct; c.hwm=c.cum; } }
       const mv=ents.filter(e=>e.date===date && e.target===c.id).reduce((a,e)=>a+(+e.amount||0),0);
-      const st=c.cap; c.cap+=g-cm+mv; c.gain+=g; c.com+=cm; c.mov+=mv; row.cp.push({g,cm,mv,start:st,cap:c.cap}); row.com+=cm;
+      const st=c.cap; c.cap+=g-cm+mv; c.gain+=g; c.com+=cm; c.mov+=mv; row.cp.push({g,cm,mv,start:st,cap:c.cap,debt:c.hwm-c.cum}); row.com+=cm;
     });
     const ce=ents.filter(e=>e.date===date && e.target==='comm');
     const ownD=ce.filter(e=>e.kind==='propia').reduce((a,e)=>a+(+e.amount||0),0);
@@ -279,11 +281,11 @@ function openCopDay(date){
   let body;
   if (ci<0){
     body=`<div><div class="big gt">${money(r.com)}</div><div class="mut">Comisión total del día (${cfg.pct} %)</div></div>
-    <dl class="kv card">${cs.map((c,i)=>`<dt>${esc(c.name)}</dt><dd>${r.cp[i].cm?money(r.cp[i].cm):'<span class="mut">0 (día en negativo)</span>'}</dd>`).join('')}<dt>Tu resultado ese día</dt><dd class="${cls(r.pnl)}">${smoney(r.pnl)}</dd></dl>`;
+    <dl class="kv card">${cs.map((c,i)=>`<dt>${esc(c.name)}</dt><dd>${r.cp[i].cm?money(r.cp[i].cm):`<span class="mut">0${r.cp[i].debt>0.005?' · le falta recuperar '+money(r.cp[i].debt):' (día en negativo)'}</span>`}</dd>`).join('')}<dt>Tu resultado ese día</dt><dd class="${cls(r.pnl)}">${smoney(r.pnl)}</dd></dl>`;
   } else {
     const p=r.cp[ci], c=cs[ci], net=p.g-p.cm, pct=p.start>0?net/p.start:0;
     body=`<div><div class="big ${cls(net)}">${smoney(net)}</div><div class="${cls(pct)} num">${spct(pct)} del día · neto</div></div>
-    <dl class="kv card"><dt>Capital inicial</dt><dd>${money(p.start)}</dd><dt>Ganancia bruta</dt><dd class="${cls(p.g)}">${smoney(p.g)}</dd><dt>Tu comisión (${cfg.pct} %)</dt><dd>${p.cm?'−'+money(p.cm):'0,00 $'}</dd><dt>Ganancia neta</dt><dd class="${cls(net)}">${smoney(net)}</dd>${p.mv?`<dt>Depósito / retiro</dt><dd class="${cls(p.mv)}">${smoney(p.mv)}</dd>`:''}<dt>Capital final</dt><dd>${money(p.cap)}</dd></dl>
+    <dl class="kv card"><dt>Capital inicial</dt><dd>${money(p.start)}</dd><dt>Ganancia bruta</dt><dd class="${cls(p.g)}">${smoney(p.g)}</dd><dt>Tu comisión (${cfg.pct} %)</dt><dd>${p.cm?'−'+money(p.cm):'0,00 $'}</dd>${p.debt>0.005?`<dt>Por recuperar antes de cobrar</dt><dd class="neg">${money(p.debt)}</dd>`:''}<dt>Ganancia neta</dt><dd class="${cls(net)}">${smoney(net)}</dd>${p.mv?`<dt>Depósito / retiro</dt><dd class="${cls(p.mv)}">${smoney(p.mv)}</dd>`:''}<dt>Capital final</dt><dd>${money(p.cap)}</dd></dl>
     <p class="hint" style="margin:0">Ganancia bruta: tu ganancia ${smoney(r.pnl)} × (${money(p.start)} ÷ ${money(r.base)}) × ${String(c.mult).replace('.',',')}.</p>`;
   }
   const host=$('sheetHost');
@@ -423,7 +425,7 @@ function renderCop(){
       <div class="v num">${money(c.cap)}</div>
       <dl class="kv"><dt>Inicial</dt><dd>${money(+c.capital)}</dd><dt>Ganancia neta</dt><dd class="${cls(net)}">${smoney(net)}</dd><dt>Comisión pagada</dt><dd>${money(c.com)}</dd><dt>Rentab.</dt><dd class="${cls(r)}">${spct(r)}</dd></dl></div>`; }).join('');
   renderCopCal(E);
-  $('copNote').textContent=`Copian la cuenta ${accName(cfg.copyAcc)} desde el ${shortDate(cfg.copyStart)}. La comisión del ${cfg.pct}% solo se cobra en días positivos.`+(linked?` Las comisiones te llegan como depósito a la ${accName(cfg.commAcc)}: allí cuentan como movimiento, no como ganancia de trading.`:'');
+  $('copNote').textContent=`Copian la cuenta ${accName(cfg.copyAcc)} desde el ${shortDate(cfg.copyStart)}. La comisión del ${cfg.pct}% se cobra sobre lo que cada copier gane por encima de su máximo anterior: tras un día en negativo, primero tiene que recuperarlo.`+(E.cps.some(c=>c.hwm-c.cum>0.005)?' Pendiente de recuperar: '+E.cps.filter(c=>c.hwm-c.cum>0.005).map(c=>c.name+' '+money(c.hwm-c.cum)).join(' · ')+'.':'')+(linked?` Las comisiones te llegan como depósito a la ${accName(cfg.commAcc)}: allí cuentan como movimiento, no como ganancia de trading.`:'');
   const cs=cfg.copiers||[];
   const head=`<thead><tr><th>Fecha</th><th>Tu resultado</th>${cs.map(c=>`<th>${esc(c.name)} (neto)</th>`).join('')}<th>Comisión</th>${linked?'':'<th>Cta. com.</th>'}</tr></thead>`;
   const body=[...E.rows].reverse().map(r=>`<tr><td>${shortDate(r.date)}</td><td class="${cls(r.pnl)}">${r.base==null?'—':smoney(r.pnl)}</td>${r.cp.map(p=>`<td class="${cls(p.g-p.cm)}">${r.base==null?'—':smoney(p.g-p.cm)}</td>`).join('')}<td>${r.com?money(r.com):'—'}</td>${linked?'':`<td>${money(r.comm)}</td>`}</tr>`).join('');
