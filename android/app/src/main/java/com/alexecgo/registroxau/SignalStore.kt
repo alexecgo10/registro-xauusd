@@ -223,6 +223,11 @@ class SignalStore(context: Context) {
     } catch (e: Exception) { emptyList() }
     fun saveManual(l: List<Trade>) = prefs.edit().putString("manualTrades", JSONArray(l.map { it.toJson() }).toString()).apply()
 
+    fun priceAlarms(): List<PriceAlarm> = try {
+        val a = JSONArray(prefs.getString("priceAlarms", "[]")); (0 until a.length()).map { PriceAlarm.of(a.getJSONObject(it)) }
+    } catch (e: Exception) { emptyList() }
+    fun savePriceAlarms(l: List<PriceAlarm>) = prefs.edit().putString("priceAlarms", JSONArray(l.map { it.toJson() }).toString()).apply()
+
     fun orders(): List<Order> = try {
         val a = JSONArray(prefs.getString("orders", "[]")); (0 until a.length()).map { Order.of(a.getJSONObject(it)) }
     } catch (e: Exception) { emptyList() }

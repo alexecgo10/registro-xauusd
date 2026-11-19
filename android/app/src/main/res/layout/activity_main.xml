@@ -236,6 +236,32 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
+                <!-- Alarmas de precio puestas a mano -->
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/Card"
+                    android:layout_width="match_parent" android:layout_height="wrap_content">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+                        <TextView style="@style/Eyebrow" android:text="Alarmas de precio" />
+                        <LinearLayout
+                            android:id="@+id/boxPriceAlarms"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="vertical" />
+                        <Button
+                            android:id="@+id/btnAddPriceAlarm"
+                            style="@style/BtnOutlined"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="＋  Añadir alarma" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
                 <!-- Alarmas -->
                 <com.google.android.material.card.MaterialCardView style="@style/Card"
                     android:layout_width="match_parent" android:layout_height="wrap_content">

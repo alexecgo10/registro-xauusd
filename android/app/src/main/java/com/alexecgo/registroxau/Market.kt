@@ -68,6 +68,15 @@ data class Order(val key: String, val acc: String, val sym: String, val type: St
     }
 }
 
+/** Alarma de precio puesta a mano: suena cuando el oro llega a [price]. */
+data class PriceAlarm(val id: String, val price: Double, val above: Boolean, val note: String = "", val alarm: Boolean = true) {
+    fun reached(q: Quote) = if (above) q.bid >= price else q.ask <= price
+    fun toJson(): JSONObject = JSONObject().put("id", id).put("price", price).put("above", above).put("note", note).put("alarm", alarm)
+    companion object {
+        fun of(o: JSONObject) = PriceAlarm(o.optString("id"), o.optDouble("price"), o.optBoolean("above"), o.optString("note"), o.optBoolean("alarm", true))
+    }
+}
+
 object Market {
     private const val FEED = "https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD"
 
@@ -115,8 +124,22 @@ object Market {
             }
         }
 
-        // Órdenes pendientes que entran en mercado
         if (q.closed) return
+
+        // Alarmas de precio puestas a mano: suenan una vez y se borran.
+        val pa = st.priceAlarms()
+        val hit = pa.filter { it.reached(q) }
+        if (hit.isNotEmpty()) {
+            st.savePriceAlarms(pa - hit.toSet())
+            hit.forEach { a ->
+                val title = "🎯 Oro en ${fmtPrice(a.price)}"
+                val text = a.note.ifBlank { "Ha llegado a tu alarma (${if (a.above) "subiendo" else "bajando"})" }
+                if (a.alarm) Alarm.start(ctx, title, text) else Notifier.alert(ctx, title, text)
+                st.log("Alarma de precio ${fmtPrice(a.price)}")
+            }
+        }
+
+        // Órdenes pendientes que entran en mercado
         val orders = st.orders()
         val fired = st.ordFired.toMutableSet()
         fired.retainAll(orders.map { it.key }.toSet())

@@ -122,6 +122,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupSignal() {
         findViewById<Button>(R.id.btnAddTrade).setOnClickListener { tradeDialog(null) }
+        findViewById<Button>(R.id.btnAddPriceAlarm).setOnClickListener { priceAlarmDialog() }
         findViewById<Button>(R.id.btnCapTrade).setOnClickListener { pickShot.launch("image/*") }
         findViewById<TextView>(R.id.tabP).setOnClickListener { setTradePage("P") }
         findViewById<TextView>(R.id.tabS).setOnClickListener { setTradePage("S") }
@@ -706,6 +707,8 @@ class MainActivity : AppCompatActivity() {
                 Notifier.money(total) to (if (total < 0) C_SELL else C_POS)), tw, bold = true), null))
         }
 
+        renderPriceAlarms(q)
+
         // Promedios (órdenes pendientes): tipo · lotes · precio · distancia · 🔔 · ⏰
         val ob = findViewById<LinearLayout>(R.id.boxOrders)
         ob.removeAllViews()
@@ -732,6 +735,63 @@ class MainActivity : AppCompatActivity() {
                 ob.addView(row)
             }
         }
+    }
+
+    // ---------- Alarmas de precio ----------
+    private fun renderPriceAlarms(q: Quote?) {
+        val box = findViewById<LinearLayout>(R.id.boxPriceAlarms)
+        box.removeAllViews()
+        val list = store.priceAlarms().sortedByDescending { it.price }
+        if (list.isEmpty()) { box.addView(tableRow(listOf("Ninguna. Añade una para que suene al llegar a un precio." to C_INK2), floatArrayOf(1f))); return }
+        val w = floatArrayOf(1.3f, 1.1f, 1.6f)
+        list.forEach { a ->
+            val falta = q?.let { Market.fmtPrice(kotlin.math.abs((if (a.above) it.bid else it.ask) - a.price)) } ?: "—"
+            val row = tableRow(listOf(
+                ((if (a.above) "▲ " else "▼ ") + Market.fmtPrice(a.price)) to (if (a.above) C_BUY else C_SELL),
+                "falta $falta" to C_INK2,
+                a.note to C_INK
+            ), w)
+            row.gravity = android.view.Gravity.CENTER_VERTICAL
+            row.addView(toggle("⏰", a.alarm) {
+                store.savePriceAlarms(store.priceAlarms().map { if (it.id == a.id) it.copy(alarm = !it.alarm) else it }); refresh()
+            })
+            row.addView(toggle("✕", true) {
+                store.savePriceAlarms(store.priceAlarms().filter { it.id != a.id }); refresh()
+            })
+            box.addView(row)
+        }
+    }
+
+    private fun priceAlarmDialog() {
+        val dp = resources.displayMetrics.density
+        fun px(v: Int) = (v * dp).toInt()
+        val q = store.quote
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(px(20), px(8), px(20), 0) }
+        val price = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            textSize = 22f; gravity = android.view.Gravity.CENTER; setTextColor(C_INK)
+            typeface = android.graphics.Typeface.MONOSPACE; hint = "Precio"
+            q?.let { setText(String.format(java.util.Locale.US, "%.2f", it.bid)); setSelection(text.length) }
+        }
+        val note = EditText(this).apply { hint = "Nota (opcional)"; setTextColor(C_INK); setSingleLine() }
+        val info = TextView(this).apply { setTextColor(C_INK2); textSize = 13f; setPadding(0, px(6), 0, 0)
+            text = q?.let { "Precio ahora: ${Market.fmtPrice(it.bid)}" } ?: "Sin precio en directo ahora mismo" }
+        root.addView(price); root.addView(note); root.addView(info)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Alarma de precio")
+            .setView(root)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Guardar") { _, _ ->
+                val raw = price.text.toString().replace(" ", "")
+                val v = (if (raw.contains(",")) raw.replace(".", "").replace(",", ".") else raw).toDoubleOrNull()
+                if (v == null || v <= 0) { toast("Precio no válido"); return@setPositiveButton }
+                val now = store.quote?.bid
+                if (now == null) { toast("No hay precio en directo: inténtalo en un momento"); return@setPositiveButton }
+                val above = v > now
+                store.savePriceAlarms(store.priceAlarms() + PriceAlarm("pa|${System.currentTimeMillis()}", v, above, note.text.toString().trim()))
+                toast("Sonará cuando el oro ${if (above) "suba" else "baje"} a ${Market.fmtPrice(v)}")
+                refresh()
+            }.show()
     }
 
     // ---------- Cuentas y capturas ----------

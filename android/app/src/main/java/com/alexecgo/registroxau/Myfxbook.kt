@@ -172,7 +172,7 @@ object Myfxbook {
                     st.saveTrades(emptyList()); st.saveOrders(emptyList())
                     if (st.manualTrades().isEmpty()) st.clearFloating()
                 }
-                val watching = st.trades().isNotEmpty() || (mfx && st.orders().isNotEmpty())
+                val watching = st.trades().isNotEmpty() || (mfx && st.orders().isNotEmpty()) || st.priceAlarms().isNotEmpty()
                 if (uiVisible || watching) {
                     Market.fetchQuote()?.let { st.quote = it }
                     Market.evaluate(c)
@@ -187,7 +187,7 @@ object Myfxbook {
             val q = st.quote
             val next = when {
                 uiVisible -> 3_000L
-                st.trades().isNotEmpty() || (mfx && st.orders().isNotEmpty()) -> if (q?.closed == true) 120_000L else st.bgInterval * 1000L
+                st.trades().isNotEmpty() || (mfx && st.orders().isNotEmpty()) || st.priceAlarms().isNotEmpty() -> if (q?.closed == true) 120_000L else st.bgInterval * 1000L
                 else -> 60_000L
             }
             handler?.postDelayed(this, next)
